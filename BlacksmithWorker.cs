@@ -191,7 +191,11 @@ namespace DvergrWorkers
         }
 
         /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
-        private List<Need> BuildNeeds(Smelter machine)
+        /// <param name="fuelUsers">
+        /// How many machines still want each kind of fuel this round. Scarce fuel is split between them
+        /// instead of all going to the first machine visited.
+        /// </param>
+        private List<Need> BuildNeeds(Smelter machine, Dictionary<string, int> fuelUsers = null)
         {
             var needs = new List<Need>();
 
@@ -202,8 +206,14 @@ namespace DvergrWorkers
                 if (room > 0)
                 {
                     int supply = Supply(shared, fuel: true);
+                    int users = 1;
+                    if (fuelUsers != null && fuelUsers.TryGetValue(shared, out int counted))
+                    {
+                        users = Math.Max(1, counted);
+                    }
                     if (supply > 0)
                     {
+                        supply = Math.Min(supply, (supply + users - 1) / users);
                         needs.Add(new Need
                         {
                             SharedName = shared,
@@ -251,6 +261,19 @@ namespace DvergrWorkers
                 }
             }
             return needs;
+        }
+
+        private static bool IsFuelAnywhere(List<Smelter> machines, string sharedName)
+        {
+            foreach (Smelter machine in machines)
+            {
+                if (machine.m_fuelItem != null && machine.m_maxFuel > 0
+                    && machine.m_fuelItem.m_itemData.m_shared.m_name == sharedName)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>Says what the machines are short of, e.g. "Waiting for coal and ore in a chest".</summary>
@@ -348,9 +371,39 @@ namespace DvergrWorkers
                 return StartDeposit();
             }
 
+            // Fuel users still waiting, and which fuels some machine in range makes.
+            var fuelUsers = new Dictionary<string, int>();
+            var fuelMade = new HashSet<string>();
+            foreach (Smelter machine in machines)
+            {
+                if (machine.m_fuelItem == null || machine.m_maxFuel <= 0)
+                {
+                    continue;
+                }
+                string fuel = machine.m_fuelItem.m_itemData.m_shared.m_name;
+                if (!_served.Contains(machine) && !_unreachable.Contains(machine)
+                    && Mathf.FloorToInt(machine.m_maxFuel - machine.GetFuel()) > 0)
+                {
+                    fuelUsers[fuel] = fuelUsers.TryGetValue(fuel, out int n) ? n + 1 : 1;
+                }
+            }
+            foreach (Smelter machine in machines)
+            {
+                if (machine.m_fuelItem == null || machine.m_maxFuel <= 0)
+                {
+                    foreach (string output in OutputNames(machine))
+                    {
+                        fuelMade.Add(output);
+                    }
+                }
+            }
+
+            // Machines that make fuel (the kiln) come first so coal starts cooking as early as possible;
+            // otherwise the nearest machine that has something to do.
             Smelter best = null;
             List<Need> bestNeeds = null;
             bool bestPending = false;
+            int bestPriority = int.MaxValue;
             float bestDist = float.MaxValue;
             foreach (Smelter machine in machines)
             {
@@ -360,15 +413,22 @@ namespace DvergrWorkers
                 }
 
                 bool pending = HasPendingOutput(machine);
-                List<Need> needs = BuildNeeds(machine);
+                List<Need> needs = BuildNeeds(machine, fuelUsers);
                 if (!pending && needs.Count == 0)
                 {
                     continue;
                 }
 
-                float d = Vector3.Distance(machine.transform.position, transform.position);
-                if (d < bestDist)
+                bool makesFuel = false;
+                foreach (string output in OutputNames(machine))
                 {
+                    makesFuel |= fuelMade.Contains(output) && IsFuelAnywhere(machines, output);
+                }
+                int priority = makesFuel ? 0 : 1;
+                float d = Vector3.Distance(machine.transform.position, transform.position);
+                if (priority < bestPriority || (priority == bestPriority && d < bestDist))
+                {
+                    bestPriority = priority;
                     bestDist = d;
                     best = machine;
                     bestNeeds = needs;
