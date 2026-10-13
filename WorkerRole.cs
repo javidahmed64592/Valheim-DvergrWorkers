@@ -20,6 +20,9 @@ namespace DvergrWorkers
         /// <summary>Item prefab the worker carries and holds while working, or null if it needs none.</summary>
         public string ToolPrefab;
 
+        /// <summary>Which worker chests must exist in range before this role starts its task loop.</summary>
+        public ChestUse Chests = ChestUse.None;
+
         public float DefaultInterval = 60f;
         public float DefaultReach = 7f;
 

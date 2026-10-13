@@ -43,6 +43,10 @@ namespace DvergrWorkers
         protected MonsterAI Ai { get; private set; }
         internal WorkerEquipment Equipment { get; private set; }
         internal WorkerNavigator Navigator { get; private set; }
+        internal WorkerLogistics Logistics { get; private set; }
+
+        /// <summary>Optional reason shown on the bed instead of "Idle", e.g. "Waiting for items in the input chest".</summary>
+        protected string IdleNote { get; set; }
 
         /// <summary>Position of the worker's bed; the centre of its wander and job radius.</summary>
         protected Vector3 Home { get; private set; }
@@ -81,6 +85,9 @@ namespace DvergrWorkers
             Ai = GetComponent<MonsterAI>();
             Equipment = new WorkerEquipment(Humanoid, Role.ToolPrefab);
             Navigator = new WorkerNavigator(Ai, Character, Role);
+            Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
+            Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
+            Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
             _nextRound = Time.time + FirstRoundDelay;
             Instances[gameObject] = this;
         }
@@ -166,7 +173,7 @@ namespace DvergrWorkers
                 return RunTask(dt);
             }
 
-            SetStatus(restTime ? "Resting" : IdleStatus());
+            SetStatus(restTime ? "Resting" : IdleNote ?? IdleStatus());
 
             if (_threatened || tookDamage || hasTarget || ai.IsAlerted())
             {
@@ -175,6 +182,12 @@ namespace DvergrWorkers
 
             if (!restTime && Time.time >= _nextRound)
             {
+                if (!ChestsReady())
+                {
+                    return Leash(dt);
+                }
+
+                IdleNote = null;
                 InRound = true;
                 if (BeginRound())
                 {
@@ -196,6 +209,25 @@ namespace DvergrWorkers
             Equipment.ReleaseTool();
             OnRoundEnded(finished);
             DvergrWorkersPlugin.Log.LogInfo(Role.Name + " round " + (finished ? "finished" : "interrupted"));
+        }
+
+        /// <summary>
+        /// A role that needs input and/or output chests does nothing until they are built within its job radius.
+        /// </summary>
+        private bool ChestsReady()
+        {
+            ChestUse needs = Role.Chests;
+            if ((needs & ChestUse.Input) != 0 && !Logistics.HasChest(ChestKind.Input))
+            {
+                IdleNote = "Needs an input chest nearby";
+                return false;
+            }
+            if ((needs & ChestUse.Output) != 0 && !Logistics.HasChest(ChestKind.Output))
+            {
+                IdleNote = "Needs an output chest nearby";
+                return false;
+            }
+            return true;
         }
 
         /// <summary>Keeps the idle worker inside its radius even if something pushed it out.</summary>

@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -60,6 +60,8 @@ namespace DvergrWorkers
         public static ConfigEntry<float> ThreatRadius;
         public static ConfigEntry<string> RepairAnimationTrigger;
         public static ConfigEntry<bool> WorkAtNight;
+        public static ConfigEntry<int> InventoryWidth;
+        public static ConfigEntry<int> InventoryHeight;
 
         public static void Bind(ConfigFile config)
         {
@@ -74,6 +76,11 @@ namespace DvergrWorkers
                     new AcceptableValueRange<float>(5f, 80f)));
             WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
                 "If false, workers rest at night and only work in daylight.");
+
+            InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
+                new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
+            InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
+                new ConfigDescription("Rows in a worker's own inventory.", new AcceptableValueRange<int>(1, 8)));
 
             foreach (WorkerRole role in WorkerRoles.All)
             {
