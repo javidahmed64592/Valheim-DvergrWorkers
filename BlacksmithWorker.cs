@@ -43,6 +43,8 @@ namespace DvergrWorkers
         private float _timer;
         private int _collectTries;
         private bool _starved;
+        private string _missingFuel = "";
+        private bool _missingOre;
         private bool _deliverFirst;
         private int _handled;
         private int _handledLastRound;
@@ -213,6 +215,7 @@ namespace DvergrWorkers
                     else
                     {
                         _starved = true;
+                        _missingFuel = shared.Replace("$item_", "");
                     }
                 }
             }
@@ -244,9 +247,25 @@ namespace DvergrWorkers
                 if (!any && room > 0)
                 {
                     _starved = true;
+                    _missingOre = true;
                 }
             }
             return needs;
+        }
+
+        /// <summary>Says what the machines are short of, e.g. "Waiting for coal and ore in a chest".</summary>
+        private string WaitingNote()
+        {
+            var parts = new List<string>();
+            if (_missingFuel.Length > 0)
+            {
+                parts.Add(_missingFuel);
+            }
+            if (_missingOre)
+            {
+                parts.Add("ore");
+            }
+            return "Waiting for " + string.Join(" and ", parts) + " in a chest";
         }
 
         // ---------------------------------------------------------------- rounds
@@ -256,6 +275,8 @@ namespace DvergrWorkers
             _served.Clear();
             _unreachable.Clear();
             _starved = false;
+            _missingFuel = "";
+            _missingOre = false;
             _handled = 0;
             _machine = null;
             _fetchActive = false;
@@ -282,7 +303,7 @@ namespace DvergrWorkers
             if (!work)
             {
                 _handledLastRound = 0;
-                IdleNote = _starved ? "Waiting for items in the input chest" : null;
+                IdleNote = _starved ? WaitingNote() : null;
                 return false;
             }
 
@@ -373,7 +394,7 @@ namespace DvergrWorkers
             }
             if (_handled == 0 && _starved)
             {
-                IdleNote = "Waiting for items in the input chest";
+                IdleNote = WaitingNote();
             }
             EndRound(finished: true);
             return false;

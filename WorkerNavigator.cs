@@ -22,7 +22,9 @@ namespace DvergrWorkers
     /// </summary>
     internal sealed class WorkerNavigator
     {
-        private const float WalkTimeout = 20f;
+        private const float WalkTimeout = 25f;
+        private const int MaxEscapes = 3;
+        private const float EscapeDuration = 1.2f;
         private const float StuckSampleInterval = 1.5f;
         private const float StuckDistance = 0.4f;
         private const int StuckStrikesToGiveUp = 3;
@@ -36,6 +38,7 @@ namespace DvergrWorkers
         private readonly MonsterAI _ai;
         private readonly WorkerRole _role;
         private readonly int _groundMask;
+        private readonly int _obstacleMask;
         private readonly List<Vector3> _pathScratch = new List<Vector3>();
 
         private Func<Vector3, Vector3> _closestPoint;
@@ -45,6 +48,9 @@ namespace DvergrWorkers
         private float _stuckTimer;
         private Vector3 _stuckSamplePos;
         private int _stuckStrikes;
+        private int _escapes;
+        private float _escapeUntil;
+        private Vector3 _escapeDir;
 
         public WorkerNavigator(MonsterAI ai, Character character, WorkerRole role)
         {
@@ -53,6 +59,7 @@ namespace DvergrWorkers
             _transform = ai.transform;
             _role = role;
             _groundMask = LayerMask.GetMask("Default", "static_solid", "terrain", "piece", "Default_small");
+            _obstacleMask = LayerMask.GetMask("Default", "static_solid", "piece", "Default_small");
         }
 
         /// <summary>Closest point on the solid colliders of an object (bounds for concave meshes, which can't be queried).</summary>
@@ -95,6 +102,8 @@ namespace DvergrWorkers
             _walkTimer = 0f;
             _stuckTimer = 0f;
             _stuckStrikes = 0;
+            _escapes = 0;
+            _escapeUntil = 0f;
             _stuckSamplePos = _transform.position;
             return true;
         }
@@ -109,6 +118,16 @@ namespace DvergrWorkers
 
             _walkTimer += dt;
 
+            // Mid-escape: walk straight along the clearest direction for a moment to get free of whatever is wedging us.
+            if (Time.time < _escapeUntil)
+            {
+                _ai.MoveTowards(_escapeDir, false);
+                if (_walkTimer <= WalkTimeout)
+                {
+                    return NavResult.Moving;
+                }
+            }
+
             // Path following first; once stuck, fall back to steering with obstacle avoidance.
             bool arrived = _stuckStrikes >= 1
                 ? _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false)
@@ -120,6 +139,13 @@ namespace DvergrWorkers
                 _stuckStrikes = Vector3.Distance(_transform.position, _stuckSamplePos) < StuckDistance ? _stuckStrikes + 1 : 0;
                 _stuckSamplePos = _transform.position;
                 _stuckTimer = 0f;
+
+                if (_stuckStrikes >= 2 && _escapes < MaxEscapes)
+                {
+                    StartEscape();
+                    _stuckStrikes = 1;
+                    return NavResult.Moving;
+                }
             }
 
             if (!arrived && _walkTimer <= WalkTimeout && _stuckStrikes < StuckStrikesToGiveUp)
@@ -139,6 +165,48 @@ namespace DvergrWorkers
                 + " (" + Vector3.Distance(_transform.position, _standPoint).ToString("F1") + "m), pathNodes="
                 + _ai.m_path.Count + ", onGround=" + _character.IsOnGround() + ", inAttack=" + _character.InAttack());
             return NavResult.Failed;
+        }
+
+        /// <summary>Picks the direction with the most free space (leaning towards the goal) and heads that way briefly.</summary>
+        private void StartEscape()
+        {
+            _escapes++;
+            Vector3 origin = _transform.position + Vector3.up * 0.8f;
+            Vector3 toGoal = _standPoint - _transform.position;
+            toGoal.y = 0f;
+            toGoal = toGoal.sqrMagnitude > 0.01f ? toGoal.normalized : _transform.forward;
+
+            float bestScore = float.MinValue;
+            Vector3 bestDir = toGoal;
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * Mathf.PI * 0.25f;
+                Vector3 dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                float free = Physics.Raycast(origin, dir, out RaycastHit hit, 2f, _obstacleMask) ? hit.distance : 2f;
+                float score = free + 0.5f * Vector3.Dot(dir, toGoal);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestDir = dir;
+                }
+            }
+
+            _escapeDir = bestDir;
+            _escapeUntil = Time.time + EscapeDuration;
+            _stuckSamplePos = _transform.position;
+            _stuckTimer = 0f;
+
+            var touching = new List<string>();
+            foreach (Collider col in Physics.OverlapSphere(_transform.position + Vector3.up * 0.9f, 0.9f, _obstacleMask))
+            {
+                string name = col.transform.root.name;
+                if (!touching.Contains(name) && touching.Count < 6)
+                {
+                    touching.Add(name);
+                }
+            }
+            DvergrWorkersPlugin.Log.LogInfo("Stuck heading for " + _targetName + " at " + _transform.position
+                + ", escaping (touching: " + string.Join(", ", touching) + ")");
         }
 
         private static Vector3 Chest(Vector3 feet)
@@ -204,7 +272,7 @@ namespace DvergrWorkers
                         Vector3 end = _pathScratch[_pathScratch.Count - 1];
                         if (pass == 0)
                         {
-                            if (!InReach(end))
+                            if (!InReach(end) || Physics.CheckCapsule(end + Vector3.up * 0.5f, end + Vector3.up * 1.4f, 0.4f, _obstacleMask))
                             {
                                 continue;
                             }
