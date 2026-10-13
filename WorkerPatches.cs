@@ -8,7 +8,7 @@ namespace DvergrWorkers
         // While a worker is running a job, skip the vanilla AI for that frame.
         private static bool Prefix(MonsterAI __instance, float dt, ref bool __result)
         {
-            if (RepairWorker.TryGet(__instance.gameObject, out RepairWorker worker) && worker.Tick(__instance, dt))
+            if (WorkerBrain.TryGet(__instance.gameObject, out WorkerBrain worker) && worker.Tick(__instance, dt))
             {
                 __result = true;
                 return false;
@@ -23,7 +23,7 @@ namespace DvergrWorkers
         // Workers are invincible to players but still take damage from everything else.
         private static bool Prefix(Character __instance, HitData hit)
         {
-            if (RepairWorker.TryGet(__instance.gameObject, out _) && hit.GetAttacker() is Player)
+            if (WorkerBrain.TryGet(__instance.gameObject, out _) && hit.GetAttacker() is Player)
             {
                 return false;
             }

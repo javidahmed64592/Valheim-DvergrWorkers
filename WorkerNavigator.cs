@@ -1,0 +1,245 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace DvergrWorkers
+{
+    internal enum NavResult
+    {
+        /// <summary>Still walking towards the target.</summary>
+        Moving,
+        /// <summary>Within reach of the target.</summary>
+        InReach,
+        /// <summary>Stopped short (blocked or timed out) but close enough to work from here.</summary>
+        CloseEnough,
+        /// <summary>Gave up: the target cannot be reached.</summary>
+        Failed,
+    }
+
+    /// <summary>
+    /// Walks a worker to within reach of a target, using the game's navmesh pathfinding. A target is anything
+    /// that can say which of its points is closest to a given position (a piece, a tree, a chest...).
+    /// </summary>
+    internal sealed class WorkerNavigator
+    {
+        private const float WalkTimeout = 20f;
+        private const float StuckSampleInterval = 1.5f;
+        private const float StuckDistance = 0.4f;
+        private const int StuckStrikesToGiveUp = 3;
+        private const float StandRingStep = 1.5f;
+        private const int StandAngles = 8;
+        private const float EyeHeight = 1.5f;
+        private const float ToleranceFactor = 1.75f;
+
+        private readonly Transform _transform;
+        private readonly Character _character;
+        private readonly MonsterAI _ai;
+        private readonly WorkerRole _role;
+        private readonly int _groundMask;
+        private readonly List<Vector3> _pathScratch = new List<Vector3>();
+
+        private Func<Vector3, Vector3> _closestPoint;
+        private string _targetName;
+        private Vector3 _standPoint;
+        private float _walkTimer;
+        private float _stuckTimer;
+        private Vector3 _stuckSamplePos;
+        private int _stuckStrikes;
+
+        public WorkerNavigator(MonsterAI ai, Character character, WorkerRole role)
+        {
+            _ai = ai;
+            _character = character;
+            _transform = ai.transform;
+            _role = role;
+            _groundMask = LayerMask.GetMask("Default", "static_solid", "terrain", "piece", "Default_small");
+        }
+
+        /// <summary>Closest point on the solid colliders of an object (bounds for concave meshes, which can't be queried).</summary>
+        public static Vector3 ClosestPointOnColliders(GameObject go, Vector3 from)
+        {
+            Vector3 best = go.transform.position;
+            float bestDist = float.MaxValue;
+            foreach (Collider col in go.GetComponentsInChildren<Collider>())
+            {
+                if (col.isTrigger || !col.enabled)
+                {
+                    continue;
+                }
+                Vector3 p = col is MeshCollider mesh && !mesh.convex
+                    ? col.bounds.ClosestPoint(from)
+                    : col.ClosestPoint(from);
+                float d = (p - from).sqrMagnitude;
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = p;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Picks where to stand for the target. Returns false if no spot can be reached. On success the
+        /// navigator is armed and <see cref="Step"/> should be called each frame.
+        /// </summary>
+        public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint)
+        {
+            _closestPoint = closestPoint;
+            _targetName = targetName;
+            if (!FindStandPoint(out _standPoint))
+            {
+                return false;
+            }
+
+            _walkTimer = 0f;
+            _stuckTimer = 0f;
+            _stuckStrikes = 0;
+            _stuckSamplePos = _transform.position;
+            return true;
+        }
+
+        public NavResult Step(float dt)
+        {
+            if (InReach(_transform.position))
+            {
+                _ai.StopMoving();
+                return NavResult.InReach;
+            }
+
+            _walkTimer += dt;
+
+            // Path following first; once stuck, fall back to steering with obstacle avoidance.
+            bool arrived = _stuckStrikes >= 1
+                ? _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false)
+                : _ai.MoveTo(dt, _standPoint, 0.6f, false);
+
+            _stuckTimer += dt;
+            if (_stuckTimer >= StuckSampleInterval)
+            {
+                _stuckStrikes = Vector3.Distance(_transform.position, _stuckSamplePos) < StuckDistance ? _stuckStrikes + 1 : 0;
+                _stuckSamplePos = _transform.position;
+                _stuckTimer = 0f;
+            }
+
+            if (!arrived && _walkTimer <= WalkTimeout && _stuckStrikes < StuckStrikesToGiveUp)
+            {
+                return NavResult.Moving;
+            }
+
+            _ai.StopMoving();
+            if (Gap(_transform.position) <= _role.Reach.Value * ToleranceFactor)
+            {
+                DvergrWorkersPlugin.Log.LogInfo("Stopped short of " + _targetName + " but close enough");
+                return NavResult.CloseEnough;
+            }
+
+            DvergrWorkersPlugin.Log.LogInfo("Could not reach " + _targetName + " (arrived=" + arrived
+                + ", stuck=" + _stuckStrikes + ") at " + _transform.position + " -> stand " + _standPoint
+                + " (" + Vector3.Distance(_transform.position, _standPoint).ToString("F1") + "m), pathNodes="
+                + _ai.m_path.Count + ", onGround=" + _character.IsOnGround() + ", inAttack=" + _character.InAttack());
+            return NavResult.Failed;
+        }
+
+        private static Vector3 Chest(Vector3 feet)
+        {
+            return feet + Vector3.up * EyeHeight;
+        }
+
+        /// <summary>Distance from a worker standing at <paramref name="feet"/> to the target.</summary>
+        private float Gap(Vector3 feet)
+        {
+            Vector3 chest = Chest(feet);
+            return Vector3.Distance(chest, _closestPoint(chest));
+        }
+
+        private bool InReach(Vector3 feet)
+        {
+            return Gap(feet) <= _role.Reach.Value;
+        }
+
+        /// <summary>
+        /// Samples ground positions in rings around the target, keeps those that are within reach and
+        /// reachable by a full navmesh path, and returns the one with the shortest walk. If none qualifies,
+        /// falls back to whichever partial-path end gets closest to the target.
+        /// </summary>
+        private bool FindStandPoint(out Vector3 best)
+        {
+            best = Vector3.zero;
+            if (InReach(_transform.position))
+            {
+                best = _transform.position;
+                return true;
+            }
+
+            Vector3 target = _closestPoint(_transform.position);
+            float reach = _role.Reach.Value;
+            float bestLength = float.MaxValue;
+            float bestGap = float.MaxValue;
+            bool found = false;
+
+            for (int pass = 0; pass < 2 && !found; pass++)
+            {
+                for (float radius = 0f; radius <= reach; radius += StandRingStep)
+                {
+                    int angles = radius <= 0f ? 1 : StandAngles;
+                    for (int a = 0; a < angles; a++)
+                    {
+                        float rad = a * Mathf.PI * 2f / angles;
+                        Vector3 candidate = target + new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius;
+
+                        // Cast down from just above the target so floors under roofs are found, not the roof.
+                        if (!Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask))
+                        {
+                            continue;
+                        }
+
+                        if (!Pathfinding.instance.GetPath(_transform.position, hit.point, _pathScratch, _ai.m_pathAgentType, requireFullPath: pass == 0)
+                            || _pathScratch.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        // The navmesh may have snapped the goal elsewhere; judge from where we will really stand.
+                        Vector3 end = _pathScratch[_pathScratch.Count - 1];
+                        if (pass == 0)
+                        {
+                            if (!InReach(end))
+                            {
+                                continue;
+                            }
+                            float length = PathLength(_pathScratch);
+                            if (length < bestLength)
+                            {
+                                bestLength = length;
+                                best = end;
+                                found = true;
+                            }
+                        }
+                        else
+                        {
+                            float gap = Gap(end);
+                            if (gap < bestGap)
+                            {
+                                bestGap = gap;
+                                best = end;
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return found;
+        }
+
+        private static float PathLength(List<Vector3> path)
+        {
+            float total = 0f;
+            for (int i = 1; i < path.Count; i++)
+            {
+                total += Vector3.Distance(path[i - 1], path[i]);
+            }
+            return total;
+        }
+    }
+}
