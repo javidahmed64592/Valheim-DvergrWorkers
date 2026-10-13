@@ -13,8 +13,12 @@ namespace DvergrWorkers
         public const string HomeKey = "DW_Home";
         public const string StatusKey = "DW_Status";
 
-        public string WorkerPrefab;
+        /// <summary>Serialized so it survives the prefab being instantiated; see <see cref="Role"/>.</summary>
         public string RoleName;
+
+        internal WorkerRole Role => _role ?? (_role = WorkerRoles.Get(RoleName));
+
+        private WorkerRole _role;
 
         private const float CheckInterval = 3f;
 
@@ -72,10 +76,10 @@ namespace DvergrWorkers
 
         private void SpawnWorker()
         {
-            GameObject prefab = ZNetScene.instance.GetPrefab(WorkerPrefab);
+            GameObject prefab = ZNetScene.instance.GetPrefab(Role.WorkerPrefab);
             if (prefab == null)
             {
-                DvergrWorkersPlugin.Log.LogError("Worker prefab not registered: " + WorkerPrefab);
+                DvergrWorkersPlugin.Log.LogError("Worker prefab not registered: " + Role.WorkerPrefab);
                 return;
             }
 
@@ -93,9 +97,9 @@ namespace DvergrWorkers
             workerZdo.Set(ZDOVars.s_spawnPoint, transform.position);
 
             _nview.GetZDO().Set(WorkerKey, workerZdo.m_uid);
-            worker.GetComponent<RepairWorker>()?.OnBound();
+            worker.GetComponent<WorkerBrain>()?.OnBound();
 
-            DvergrWorkersPlugin.Log.LogInfo(RoleName + " Dvergr spawned at " + pos);
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " Dvergr spawned at " + pos);
         }
 
         public string GetHoverText()
@@ -107,7 +111,7 @@ namespace DvergrWorkers
                 ZDO workerZdo = id != ZDOID.None ? ZDOMan.instance.GetZDO(id) : null;
                 status = workerZdo != null ? workerZdo.GetString(StatusKey, "Idle") : "Waiting for a new worker";
             }
-            return RoleName + " Dvergr's bed\n<color=#cccccc>" + status + "</color>";
+            return Role.Name + " Dvergr's bed\n<color=#cccccc>" + status + "</color>";
         }
 
         public float GetHoverOffset()
@@ -117,7 +121,7 @@ namespace DvergrWorkers
 
         public string GetHoverName()
         {
-            return RoleName + " Bed";
+            return Role.BedName;
         }
 
         public bool Interact(Humanoid user, bool hold, bool alt)

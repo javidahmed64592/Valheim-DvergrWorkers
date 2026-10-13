@@ -44,8 +44,7 @@ namespace DvergrWorkers
 
             try
             {
-                WorkerPrefabs.RegisterRepairWorker();
-                WorkerPrefabs.RegisterRepairBed();
+                WorkerPrefabs.RegisterAll();
             }
             catch (Exception e)
             {
@@ -57,9 +56,7 @@ namespace DvergrWorkers
     internal static class WorkerConfig
     {
         public static ConfigEntry<float> JobRadius;
-        public static ConfigEntry<float> RepairInterval;
         public static ConfigEntry<float> RespawnDelay;
-        public static ConfigEntry<float> ReachDistance;
         public static ConfigEntry<float> ThreatRadius;
         public static ConfigEntry<string> RepairAnimationTrigger;
         public static ConfigEntry<bool> WorkAtNight;
@@ -78,13 +75,12 @@ namespace DvergrWorkers
             WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
                 "If false, workers rest at night and only work in daylight.");
 
-            RepairInterval = config.Bind("Repair", "RepairInterval", 60f,
-                new ConfigDescription("Seconds between repair rounds.",
-                    new AcceptableValueRange<float>(5f, 1800f)));
-            ReachDistance = config.Bind("Repair", "ReachDistance", 7f,
-                new ConfigDescription("How close (metres) the repair worker must get to a piece before hammering it.",
-                    new AcceptableValueRange<float>(1.5f, 12f)));
-            RepairAnimationTrigger = config.Bind("Repair", "AnimationTrigger", "",
+            foreach (WorkerRole role in WorkerRoles.All)
+            {
+                role.BindConfig(config);
+            }
+
+            RepairAnimationTrigger = config.Bind(WorkerRoles.Repair.Name, "AnimationTrigger", "",
                 "Animator trigger played when hammering. Leave empty to use the hammer's own attack animation.");
         }
     }
