@@ -57,7 +57,6 @@ namespace DvergrWorkers
     internal static class WorkerConfig
     {
         public static ConfigEntry<float> JobRadius;
-        public static ConfigEntry<float> WanderRadius;
         public static ConfigEntry<float> RepairInterval;
         public static ConfigEntry<float> RespawnDelay;
         public static ConfigEntry<float> ReachDistance;
@@ -68,11 +67,8 @@ namespace DvergrWorkers
         public static void Bind(ConfigFile config)
         {
             JobRadius = config.Bind("Workers", "JobRadius", 30f,
-                new ConfigDescription("Workers only perform tasks on pieces within this distance (metres) of their bed. A small tolerance is added.",
+                new ConfigDescription("Workers wander and perform tasks within this distance (metres) of their bed. A small tolerance is added for tasks.",
                     new AcceptableValueRange<float>(5f, 100f)));
-            WanderRadius = config.Bind("Workers", "WanderRadius", 12f,
-                new ConfigDescription("Workers never wander further than this distance (metres) from their bed while idle.",
-                    new AcceptableValueRange<float>(2f, 60f)));
             RespawnDelay = config.Bind("Workers", "RespawnDelay", 30f,
                 new ConfigDescription("Seconds after a worker is lost before its bed spawns a replacement.",
                     new AcceptableValueRange<float>(1f, 600f)));

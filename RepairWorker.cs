@@ -113,7 +113,7 @@ namespace DvergrWorkers
             if (ai != null)
             {
                 ai.m_spawnPoint = home;
-                ai.m_randomMoveRange = WorkerConfig.WanderRadius.Value;
+                ai.m_randomMoveRange = WorkerConfig.JobRadius.Value;
             }
         }
 
@@ -196,14 +196,14 @@ namespace DvergrWorkers
         /// <summary>Keeps the idle worker inside its wander radius even if something pushed it out.</summary>
         private bool Leash(MonsterAI ai, float dt)
         {
-            float limit = WorkerConfig.WanderRadius.Value + 3f;
+            float limit = WorkerConfig.JobRadius.Value + 3f;
             if (Utils.DistanceXZ(transform.position, _home) <= limit)
             {
                 return false;
             }
 
             SetStatus("Heading back to bed");
-            ai.MoveTo(dt, _home, WorkerConfig.WanderRadius.Value * 0.5f, false);
+            ai.MoveTo(dt, _home, WorkerConfig.JobRadius.Value * 0.5f, false);
             return true;
         }
 
