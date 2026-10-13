@@ -1,0 +1,24 @@
+name: Package for Thunderstore
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.x"
+      - name: Build & Package
+        run: bash package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aestelwen-DvergrWorkers-${{ env.VERSION }}
+          path: dist/Aestelwen-DvergrWorkers-${{ env.VERSION }}/
