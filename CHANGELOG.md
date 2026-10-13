@@ -6,6 +6,9 @@
 - Workers use every chest of the right kind inside their job radius, closest first, and spread items across several chests.
 - Roles can declare which chests they need; until they exist the bed hover text reads "Needs an input/output chest nearby".
 - Shared chest trip logic for roles: fetch from the closest input chest holding wanted items, deposit into the closest output chest with room.
+- Added the Woodcutter Bed and woodcutter role: fells trees, chops logs, collects wood and delivers it to output chests (`TreesPerRound` setting).
+- Bed hover text shows chests in range for roles that need them, and reports "Needs an output chest nearby", "Output chests are full" or "Inventory full".
+- Tool swing animation is shared by all roles; `AnimationTrigger` is now a per-role setting.
 - Configurable worker inventory size (`InventoryWidth` / `InventoryHeight`).
 
 ## 0.1.0

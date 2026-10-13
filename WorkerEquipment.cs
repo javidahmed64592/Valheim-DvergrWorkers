@@ -17,6 +17,21 @@ namespace DvergrWorkers
 
         public ItemDrop.ItemData Tool { get; private set; }
 
+        /// <summary>Tier of the tool, available before it has been equipped (0 if there is no tool).</summary>
+        public int ToolTier
+        {
+            get
+            {
+                if (Tool != null)
+                {
+                    return Tool.m_shared.m_toolTier;
+                }
+                GameObject prefab = string.IsNullOrEmpty(_toolPrefab) ? null : ObjectDB.instance.GetItemPrefab(_toolPrefab);
+                ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
+                return drop != null ? drop.m_itemData.m_shared.m_toolTier : 0;
+            }
+        }
+
         public WorkerEquipment(Humanoid humanoid, string toolPrefab)
         {
             _humanoid = humanoid;

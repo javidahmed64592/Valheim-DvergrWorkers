@@ -28,6 +28,7 @@ namespace DvergrWorkers
 
         public ConfigEntry<float> Interval { get; private set; }
         public ConfigEntry<float> Reach { get; private set; }
+        public ConfigEntry<string> AnimationTrigger { get; private set; }
 
         public string WorkerPrefab => "DW_" + Name + "Dvergr";
         public string BedPrefab => "DW_" + Name + "Bed";
@@ -41,6 +42,8 @@ namespace DvergrWorkers
             Reach = config.Bind(Name, "ReachDistance", DefaultReach,
                 new ConfigDescription("How close (metres) the worker must get to a target before working on it.",
                     new AcceptableValueRange<float>(1.5f, 12f)));
+            AnimationTrigger = config.Bind(Name, "AnimationTrigger", "",
+                "Animator trigger played when using the tool. Leave empty to pick one automatically.");
         }
     }
 
@@ -54,7 +57,18 @@ namespace DvergrWorkers
             ToolPrefab = "Hammer",
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair };
+        public static readonly WorkerRole Woodcutter = new WorkerRole
+        {
+            Name = "Woodcutter",
+            BedDescription = "A bed for a Dvergr woodcutter. Once built, a Dvergr moves in, fells trees around the base and stores the wood in Worker Output Chests.",
+            BrainType = typeof(WoodcutterWorker),
+            ToolPrefab = "AxeIron",
+            Chests = ChestUse.Output,
+            DefaultInterval = 90f,
+            DefaultReach = 3f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter };
 
         public static WorkerRole Get(string name)
         {

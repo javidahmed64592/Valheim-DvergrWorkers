@@ -58,7 +58,7 @@ namespace DvergrWorkers
         public static ConfigEntry<float> JobRadius;
         public static ConfigEntry<float> RespawnDelay;
         public static ConfigEntry<float> ThreatRadius;
-        public static ConfigEntry<string> RepairAnimationTrigger;
+        public static ConfigEntry<int> TreesPerRound;
         public static ConfigEntry<bool> WorkAtNight;
         public static ConfigEntry<int> InventoryWidth;
         public static ConfigEntry<int> InventoryHeight;
@@ -87,8 +87,8 @@ namespace DvergrWorkers
                 role.BindConfig(config);
             }
 
-            RepairAnimationTrigger = config.Bind(WorkerRoles.Repair.Name, "AnimationTrigger", "",
-                "Animator trigger played when hammering. Leave empty to use the hammer's own attack animation.");
+            TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
+                new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
         }
     }
 }

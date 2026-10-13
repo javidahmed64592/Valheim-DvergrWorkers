@@ -111,7 +111,26 @@ namespace DvergrWorkers
                 ZDO workerZdo = id != ZDOID.None ? ZDOMan.instance.GetZDO(id) : null;
                 status = workerZdo != null ? workerZdo.GetString(StatusKey, "Idle") : "Waiting for a new worker";
             }
-            return Role.Name + " Dvergr's bed\n<color=#cccccc>" + status + "</color>";
+            return Role.Name + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + ChestLines();
+        }
+
+        /// <summary>For roles that need chests: how many are in range, in red when a required kind is missing.</summary>
+        private string ChestLines()
+        {
+            string lines = "";
+            float radius = WorkerConfig.JobRadius.Value + 3f;
+            foreach (ChestKind kind in new[] { ChestKind.Input, ChestKind.Output })
+            {
+                ChestUse use = kind == ChestKind.Input ? ChestUse.Input : ChestUse.Output;
+                if ((Role.Chests & use) == 0)
+                {
+                    continue;
+                }
+                int count = WorkerChest.Find(kind, transform.position, radius, transform.position).Count;
+                string colour = count > 0 ? "#cccccc" : "#ff6a5c";
+                lines += "\n<color=" + colour + ">" + kind + " chests in range: " + count + (count > 0 ? "" : " (required)") + "</color>";
+            }
+            return lines;
         }
 
         public float GetHoverOffset()

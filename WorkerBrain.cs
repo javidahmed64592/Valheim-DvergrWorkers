@@ -44,6 +44,7 @@ namespace DvergrWorkers
         internal WorkerEquipment Equipment { get; private set; }
         internal WorkerNavigator Navigator { get; private set; }
         internal WorkerLogistics Logistics { get; private set; }
+        internal WorkerAnimation Animation { get; private set; }
 
         /// <summary>Optional reason shown on the bed instead of "Idle", e.g. "Waiting for items in the input chest".</summary>
         protected string IdleNote { get; set; }
@@ -86,6 +87,7 @@ namespace DvergrWorkers
             Equipment = new WorkerEquipment(Humanoid, Role.ToolPrefab);
             Navigator = new WorkerNavigator(Ai, Character, Role);
             Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
+            Animation = new WorkerAnimation(Character, Role, () => Equipment.Tool);
             Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
             Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
             _nextRound = Time.time + FirstRoundDelay;
