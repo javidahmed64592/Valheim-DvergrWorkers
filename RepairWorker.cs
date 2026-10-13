@@ -55,8 +55,7 @@ namespace DvergrWorkers
         private int _repairedLastRound;
         private string _status = "";
         private bool _animLogged;
-        private ItemDrop.ItemData _savedLeft;
-        private ItemDrop.ItemData _savedRight;
+        private readonly List<ItemDrop.ItemData> _stashed = new List<ItemDrop.ItemData>();
         private float _restoreUntil;
         private float _stuckTimer;
         private Vector3 _stuckSamplePos;
@@ -378,9 +377,12 @@ namespace DvergrWorkers
             }
 
             _walkTimer += dt;
-            bool arrived = ai.MoveTo(dt, _standPoint, 0.6f, false);
 
-            // Stuck detection: if we barely moved over a few seconds, give up on this piece.
+            // Path following first; once stuck, fall back to steering with obstacle avoidance.
+            bool arrived = _stuckStrikes >= 1
+                ? ai.MoveAndAvoid(dt, _standPoint, 0.6f, false)
+                : ai.MoveTo(dt, _standPoint, 0.6f, false);
+
             _stuckTimer += dt;
             if (_stuckTimer >= 1.5f)
             {
@@ -389,15 +391,24 @@ namespace DvergrWorkers
                 _stuckTimer = 0f;
             }
 
-            if (arrived || _walkTimer > WalkTimeout || _stuckStrikes >= 2)
+            if (arrived || _walkTimer > WalkTimeout || _stuckStrikes >= 3)
             {
-                // Could not get close enough along this path: give up on this piece for the round.
+                ai.StopMoving();
+
+                // The repair itself works from any distance, so being nearly in reach is good enough.
+                if (WithinTolerance(_current, transform.position))
+                {
+                    DvergrWorkersPlugin.Log.LogInfo("Stopped short of " + _current.name + " but close enough, hammering");
+                    _phase = Phase.Windup;
+                    _phaseTimer = WindupTime;
+                    return true;
+                }
+
                 DvergrWorkersPlugin.Log.LogInfo("Could not reach " + _current.name + " (arrived=" + arrived
                     + ", stuck=" + _stuckStrikes + ") at " + transform.position + " -> stand " + _standPoint
                     + " (" + Vector3.Distance(transform.position, _standPoint).ToString("F1") + "m), pathNodes="
                     + ai.m_path.Count + ", onGround=" + _character.IsOnGround() + ", inAttack=" + _character.InAttack()
                     + ", skipping");
-                ai.StopMoving();
                 _failed.Add(_current);
                 _current = null;
             }
@@ -487,6 +498,12 @@ namespace DvergrWorkers
             return best;
         }
 
+        private static bool WithinTolerance(WearNTear wnt, Vector3 feet)
+        {
+            Vector3 chest = Chest(feet);
+            return Vector3.Distance(chest, ClosestPointOnPiece(wnt, chest)) <= WorkerConfig.ReachDistance.Value * 1.75f;
+        }
+
         private static bool InReach(WearNTear wnt, Vector3 feet)
         {
             Vector3 chest = Chest(feet);
@@ -513,6 +530,10 @@ namespace DvergrWorkers
                 return true;
             }
 
+            // Pass 0 wants a full path ending in hammer reach. Pass 1 (fallback) accepts partial paths
+            // and takes whichever end gets closest to the piece.
+            float bestGap = float.MaxValue;
+            for (int pass = 0; pass < 2 && !found; pass++)
             for (float radius = 0f; radius <= reach; radius += StandRingStep)
             {
                 int angles = radius <= 0f ? 1 : StandAngles;
@@ -528,7 +549,7 @@ namespace DvergrWorkers
                     }
                     candidate = hit.point;
 
-                    if (!Pathfinding.instance.GetPath(transform.position, candidate, _pathScratch, ai.m_pathAgentType, requireFullPath: true)
+                    if (!Pathfinding.instance.GetPath(transform.position, candidate, _pathScratch, ai.m_pathAgentType, requireFullPath: pass == 0)
                         || _pathScratch.Count == 0)
                     {
                         continue;
@@ -536,8 +557,21 @@ namespace DvergrWorkers
 
                     // The navmesh may have snapped the goal elsewhere; judge reach from where we will really stand.
                     Vector3 end = _pathScratch[_pathScratch.Count - 1];
-                    if (!InReach(wnt, end))
+                    if (pass == 0 && !InReach(wnt, end))
                     {
+                        continue;
+                    }
+
+                    if (pass == 1)
+                    {
+                        Vector3 chest = Chest(end);
+                        float gap = Vector3.Distance(chest, ClosestPointOnPiece(wnt, chest));
+                        if (gap < bestGap)
+                        {
+                            bestGap = gap;
+                            best = end;
+                            found = true;
+                        }
                         continue;
                     }
 
@@ -707,15 +741,38 @@ namespace DvergrWorkers
             // The hammer is a tool the worker carries for free and never wears out.
             _hammer.m_durability = _hammer.GetMaxDurability();
 
-            // Remember what the Dvergr was holding so it can be put back exactly afterwards.
-            _savedLeft = _humanoid.m_leftItem;
-            _savedRight = _humanoid.m_rightItem;
             _restoreUntil = 0f;
 
-            // Equipping a tool already swaps out whatever is in the hands; armour and clothes stay on.
+            // Clothes and armour stay on. Equipping a tool swaps the hands, but the Dvergr's crossbow
+            // can sit in another slot, so anything weapon-like is stashed and remembered.
+            _stashed.Clear();
+            var slots = new[]
+            {
+                _humanoid.m_leftItem, _humanoid.m_rightItem, _humanoid.m_chestItem, _humanoid.m_legItem,
+                _humanoid.m_helmetItem, _humanoid.m_shoulderItem, _humanoid.m_utilityItem, _humanoid.m_trinketItem,
+                _humanoid.m_ammoItem
+            };
+            var dump = new List<string>();
+            foreach (ItemDrop.ItemData item in slots)
+            {
+                if (item == null)
+                {
+                    continue;
+                }
+                dump.Add(item.m_shared.m_name + "(" + item.m_shared.m_itemType + ")");
+                if (item.IsWeapon() || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow"))
+                {
+                    _stashed.Add(item);
+                }
+            }
+            DvergrWorkersPlugin.Log.LogInfo("Equipped slots: " + string.Join(", ", dump));
+            foreach (ItemDrop.ItemData item in _stashed)
+            {
+                _humanoid.UnequipItem(item, false);
+            }
+
             bool ok = _humanoid.EquipItem(_hammer, false);
-            DvergrWorkersPlugin.Log.LogInfo("Equipped hammer: " + ok + " (saved left="
-                + _savedLeft?.m_shared.m_name + ", right=" + _savedRight?.m_shared.m_name + ")");
+            DvergrWorkersPlugin.Log.LogInfo("Equipped hammer: " + ok + ", stashed " + _stashed.Count + " item(s)");
         }
 
         private void UnequipHammer()
@@ -729,41 +786,36 @@ namespace DvergrWorkers
             RestoreWeapon();
         }
 
-        /// <summary>Re-equips the saved weapon; retried each frame for a few seconds in case the Dvergr is mid-animation.</summary>
+        /// <summary>Re-equips everything stashed for the round; retried each frame for a few seconds if the Dvergr is busy.</summary>
         private void RestoreWeapon()
         {
-            if (_humanoid.m_leftItem != null || _humanoid.m_rightItem != null)
+            for (int i = _stashed.Count - 1; i >= 0; i--)
             {
-                _restoreUntil = 0f;
-                return;
-            }
-
-            if (_savedLeft == null && _savedRight == null)
-            {
-                // The Dvergr wasn't holding anything before the round, so there is nothing to put back.
-                _restoreUntil = 0f;
-                return;
-            }
-
-            bool any = false;
-            foreach (ItemDrop.ItemData item in new[] { _savedLeft, _savedRight })
-            {
-                if (item != null && _humanoid.GetInventory().ContainsItem(item) && _humanoid.EquipItem(item, false))
+                ItemDrop.ItemData item = _stashed[i];
+                if (!_humanoid.GetInventory().ContainsItem(item))
                 {
-                    any = true;
+                    _stashed.RemoveAt(i);
+                    continue;
+                }
+
+                // Equipping refuses worn-out items; the worker's gear never degrades.
+                if (item.m_shared.m_useDurability && item.m_durability <= 0f)
+                {
+                    item.m_durability = item.GetMaxDurability();
+                }
+
+                if (_humanoid.EquipItem(item, false))
+                {
+                    _stashed.RemoveAt(i);
                 }
             }
 
-            if (!any)
+            if (_stashed.Count == 0 || Time.time > _restoreUntil)
             {
-                // Same call the vanilla AI makes on spawn.
-                _humanoid.EquipBestWeapon(null, null, null, null);
-                any = _humanoid.m_leftItem != null || _humanoid.m_rightItem != null;
-            }
-
-            if (any || Time.time > _restoreUntil)
-            {
-                DvergrWorkersPlugin.Log.LogInfo("Weapon restored: " + any);
+                DvergrWorkersPlugin.Log.LogInfo(_stashed.Count == 0
+                    ? "Restored stashed equipment"
+                    : "Failed to restore " + _stashed.Count + " item(s), e.g. " + _stashed[0].m_shared.m_name);
+                _stashed.Clear();
                 _restoreUntil = 0f;
             }
         }

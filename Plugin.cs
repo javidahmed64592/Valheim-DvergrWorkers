@@ -85,9 +85,9 @@ namespace DvergrWorkers
             RepairInterval = config.Bind("Repair", "RepairInterval", 60f,
                 new ConfigDescription("Seconds between repair rounds.",
                     new AcceptableValueRange<float>(5f, 1800f)));
-            ReachDistance = config.Bind("Repair", "ReachDistance", 4f,
+            ReachDistance = config.Bind("Repair", "ReachDistance", 7f,
                 new ConfigDescription("How close (metres) the repair worker must get to a piece before hammering it.",
-                    new AcceptableValueRange<float>(1.5f, 8f)));
+                    new AcceptableValueRange<float>(1.5f, 12f)));
             RepairAnimationTrigger = config.Bind("Repair", "AnimationTrigger", "",
                 "Animator trigger played when hammering. Leave empty to use the hammer's own attack animation.");
         }
