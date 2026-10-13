@@ -2,6 +2,8 @@
 
 Dvergr workers help around your base and defend it when it is under attack.
 
+_Note: This mod is an early work in progress. The initial release only includes a basic repair NPC._
+
 ![Dvergr Workers Example](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/game_screenshot.png)
 
 ## Features
