@@ -30,6 +30,7 @@ namespace DvergrWorkers
         private WorkerChest _chest;
         private Func<ItemDrop.ItemData, bool> _filter;
         private bool _fetching;
+        private int _limit;
 
         /// <summary>Why the last Begin* returned false or a trip failed.</summary>
         public string Reason { get; private set; } = "";
@@ -54,29 +55,41 @@ namespace DvergrWorkers
             return WorkerChest.Find(kind, _home(), _radius(), _transform.position).Count > 0;
         }
 
-        /// <summary>True if any input chest in range holds something matching <paramref name="wanted"/>.</summary>
-        public bool InputHas(Func<ItemDrop.ItemData, bool> wanted)
+        /// <summary>How many items matching <paramref name="filter"/> sit in chests of this kind in range.</summary>
+        public int CountInChests(ChestKind kind, Func<ItemDrop.ItemData, bool> filter)
         {
-            foreach (WorkerChest chest in WorkerChest.Find(ChestKind.Input, _home(), _radius(), _transform.position))
+            int total = 0;
+            foreach (WorkerChest chest in WorkerChest.Find(kind, _home(), _radius(), _transform.position))
             {
-                if (Contains(chest.Container.GetInventory(), wanted))
+                foreach (ItemDrop.ItemData item in chest.Container.GetInventory().GetAllItems())
                 {
-                    return true;
+                    if (filter(item))
+                    {
+                        total += item.m_stack;
+                    }
                 }
             }
-            return false;
+            return total;
         }
 
-        /// <summary>Starts a trip to the closest input chest holding wanted items. False if there is none.</summary>
-        public bool BeginFetch(Func<ItemDrop.ItemData, bool> wanted)
+        /// <summary>
+        /// Starts a trip to the closest chest of the given kind (input by default) holding wanted items,
+        /// moving at most <paramref name="maxCount"/> of them. False if there is none.
+        /// </summary>
+        public bool BeginFetch(Func<ItemDrop.ItemData, bool> wanted, int maxCount = int.MaxValue, ChestKind from = ChestKind.Input)
         {
-            return Begin(ChestKind.Input, wanted, fetching: true, "No input chest with the items needed");
+            _limit = maxCount;
+            return Begin(from, wanted, fetching: true, "No " + from.ToString().ToLowerInvariant() + " chest with the items needed");
         }
 
-        /// <summary>Starts a trip to the closest output chest that has room for something carried that matches the filter.</summary>
-        public bool BeginDeposit(Func<ItemDrop.ItemData, bool> filter)
+        /// <summary>
+        /// Starts a trip to the closest chest of the given kind (output by default) that has room for
+        /// something carried that matches the filter.
+        /// </summary>
+        public bool BeginDeposit(Func<ItemDrop.ItemData, bool> filter, ChestKind to = ChestKind.Output)
         {
-            return Begin(ChestKind.Output, filter, fetching: false, "Output chests are full");
+            _limit = int.MaxValue;
+            return Begin(to, filter, fetching: false, to == ChestKind.Output ? "Output chests are full" : "Input chests are full");
         }
 
         public LogisticsResult Step(float dt)
@@ -165,6 +178,7 @@ namespace DvergrWorkers
             Inventory dest = _fetching ? Carried : chestInv;
 
             int moved = 0;
+            int remaining = _limit;
             foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(source.GetAllItems()))
             {
                 if (!_filter(item))
@@ -172,7 +186,7 @@ namespace DvergrWorkers
                     continue;
                 }
 
-                int amount = Math.Min(item.m_stack, Capacity(dest, item));
+                int amount = Math.Min(Math.Min(item.m_stack, Capacity(dest, item)), remaining);
                 if (amount <= 0)
                 {
                     continue;
@@ -180,10 +194,11 @@ namespace DvergrWorkers
 
                 ItemDrop.ItemData copy = item.Clone();
                 copy.m_stack = amount;
-                if (dest.AddItem(copy))
+                if (amount > 0 && dest.AddItem(copy))
                 {
                     source.RemoveItem(item, amount);
                     moved += amount;
+                    remaining -= amount;
                 }
             }
 

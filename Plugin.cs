@@ -59,6 +59,8 @@ namespace DvergrWorkers
         public static ConfigEntry<float> RespawnDelay;
         public static ConfigEntry<float> ThreatRadius;
         public static ConfigEntry<int> TreesPerRound;
+        public static ConfigEntry<string> BlacksmithMachines;
+        public static ConfigEntry<bool> FuelFromOutputChests;
         public static ConfigEntry<bool> WorkAtNight;
         public static ConfigEntry<int> InventoryWidth;
         public static ConfigEntry<int> InventoryHeight;
@@ -87,6 +89,10 @@ namespace DvergrWorkers
                 role.BindConfig(config);
             }
 
+            BlacksmithMachines = config.Bind(WorkerRoles.Blacksmith.Name, "Machines", "charcoal_kiln,smelter,blastfurnace",
+                "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
+            FuelFromOutputChests = config.Bind(WorkerRoles.Blacksmith.Name, "FuelFromOutputChests", true,
+                "Let the blacksmith take coal from output chests as fuel, so charcoal it makes can fuel the smelters.");
             TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
                 new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
         }

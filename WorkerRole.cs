@@ -68,7 +68,17 @@ namespace DvergrWorkers
             DefaultReach = 3f,
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter };
+        public static readonly WorkerRole Blacksmith = new WorkerRole
+        {
+            Name = "Blacksmith",
+            BedDescription = "A bed for a Dvergr blacksmith. Once built, a Dvergr moves in and keeps nearby charcoal kilns, smelters and blast furnaces fed from Worker Input Chests, delivering the coal and metal to Worker Output Chests.",
+            BrainType = typeof(BlacksmithWorker),
+            Chests = ChestUse.Both,
+            DefaultInterval = 60f,
+            DefaultReach = 3f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith };
 
         public static WorkerRole Get(string name)
         {
