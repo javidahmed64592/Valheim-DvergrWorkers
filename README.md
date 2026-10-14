@@ -5,6 +5,7 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Repair Worker** - fixes damaged structures around the base.
 - **Woodcutter Worker** - fells trees and collects wood.
 - **Blacksmith Worker** - manages smelters, kilns, and blast furnaces.
+- **Refueler Worker** - keeps torches, fires, and braziers topped up with fuel.
 
 _Note: This mod is an early work in progress!_
 
@@ -18,6 +19,7 @@ Dvergr workers each have a job to do around the base.
 They have designated beds that serve as their spawning point and their work area.
 They use chests for storing resources and materials needed for their tasks.
 They even fend off enemies attacking the base!
+Players cannot hurt them, and they rest at night instead of working.
 
 ### Roles
 
@@ -26,6 +28,7 @@ Each job loop:
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
 - **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
+- **Refueler Worker** - carries a Dvergr lantern and tops up the torches, fires, and braziers you have built with resin, wood, and coal from the input chest, returning any spare fuel afterwards.
 
 ### Beds
 
@@ -36,7 +39,7 @@ The bed's hover text indicates the worker's status (e.g., idle, working, resting
 
 ### Chests
 
-The workers use input and output chests to store and retrieve materials needed for their tasks.
+The workers use the Worker Input Chest and Worker Output Chest (buildable, same cost as the reinforced chest) to store and retrieve materials needed for their tasks.
 These chests must be within the worker's job radius to be used.
 Currently, the workers share input and output chests within their job radius.
 This may be changed in the future to allow for more complex chest management or individual chest assignments.
@@ -46,6 +49,7 @@ If the output chests are full, the worker stops and the bed's hover text says so
 
 Workers also pass items along to each other.
 If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal.
+Items no worker produces are never taken from output chests, so your finished goods stay put.
 
 | Role | Input Chest | Output Chest |
 |------|-------------|--------------|
@@ -53,6 +57,11 @@ If another worker nearby makes an item, a worker that needs it will take it from
 | Woodcutter Worker | ❌ | ✅ |
 | Blacksmith Worker | ✅ | ✅ |
 | Refueler Worker | ✅ | ❌ |
+
+## Configuration
+
+Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
+You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, and whether workers take each other's items from output chests.
 
 ## Known limitations
 
@@ -62,4 +71,4 @@ If another worker nearby makes an item, a worker that needs it will take it from
 
 ## Roadmap
 
-More roles, social behaviour such as chatting, sleeping at night and greeting players.
+More roles (a farmer that plants on soil you have tilled, a tree farmer, and barley and eitr workers) and social behaviour such as chatting and greeting players.
