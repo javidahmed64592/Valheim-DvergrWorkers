@@ -31,7 +31,7 @@ namespace DvergrWorkers
         private const float StandRingStep = 1.5f;
         private const int StandAngles = 8;
         private const float EyeHeight = 1.5f;
-        private const float ToleranceFactor = 1.75f;
+        private const float ToleranceFactor = 1.25f;
 
         private readonly Transform _transform;
         private readonly Character _character;

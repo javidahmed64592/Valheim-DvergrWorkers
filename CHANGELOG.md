@@ -2,6 +2,11 @@
 
 ## 0.2.0
 
+- Woodcutter now clears leftover tree stumps (`StumpsPerRound` setting, 0 to leave them) and measures reach to the trunk instead of the whole tree, so it no longer chops from far away. Default reach is now 2.5m.
+- Default repair reach is back down to 6m, and a worker that cannot quite reach a target now accepts being 25% further away instead of 75%.
+- Fixed workers dithering and wiggling at chests and machines: the vanilla Dvergr "face the nearest player" behaviour no longer overrides their steering while they work. Workers also escape when wedged and choose clear standing spots.
+- Blacksmith tends fuel-making machines first and shares scarce coal between machines.
+
 - Fixed duplicate workers after loading a world: beds and workers are now linked by a persistent id instead of ZDOIDs (which the game reassigns on every load), beds check all existing workers before spawning, and any worker that belongs to no bed, or is a duplicate for its bed, removes itself.
 - Added Worker Input Chest and Worker Output Chest pieces (reinforced chest cost), tinted blue and green.
 - Workers use every chest of the right kind inside their job radius, closest first, and spread items across several chests.

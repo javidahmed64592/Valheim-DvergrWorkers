@@ -5,13 +5,13 @@ namespace DvergrWorkers
 {
     /// <summary>
     /// Woodcutter role: each round it fells a few standing trees inside the job radius, chops the logs
-    /// they leave, picks up the wood and delivers it to the closest Worker Output Chest. It stops and
+    /// they leave, clears leftover stumps, picks up the wood and delivers it to the closest Worker Output Chest. It stops and
     /// says why on the bed if there is no output chest, the chests are full, or its own inventory is.
     /// </summary>
     public class WoodcutterWorker : WorkerBrain
     {
         private enum Phase { Plan, Walk, Windup, Recover, Pickup, Deliver }
-        private enum TargetKind { Tree, Log, Drop }
+        private enum TargetKind { Tree, Stump, Log, Drop }
 
         private const float WindupTime = 0.5f;
         private const float RecoverTime = 1.0f;
@@ -31,6 +31,7 @@ namespace DvergrWorkers
         private float _timer;
         private bool _deliverFirst;
         private int _treesChopped;
+        private int _stumpsCleared;
         private int _deliveredThisRound;
         private int _deliveredLastRound;
         private readonly HashSet<GameObject> _failed = new HashSet<GameObject>();
@@ -73,6 +74,7 @@ namespace DvergrWorkers
         {
             _failed.Clear();
             _treesChopped = 0;
+            _stumpsCleared = 0;
             _deliveredThisRound = 0;
             _target = null;
             _deliverFirst = CarryingWood();
@@ -123,6 +125,10 @@ namespace DvergrWorkers
                             {
                                 _treesChopped++;
                             }
+                            else if (_kind == TargetKind.Stump)
+                            {
+                                _stumpsCleared++;
+                            }
                             _target = null;
                             _phase = Phase.Plan;
                         }
@@ -163,13 +169,14 @@ namespace DvergrWorkers
 
             if (ChooseTarget(out GameObject target, out TargetKind kind))
             {
-                if (Navigator.Begin(target.name, from => WorkerNavigator.ClosestPointOnColliders(target, from)))
+                if (Navigator.Begin(target.name, from => ReachPoint(target, kind, from)))
                 {
                     _target = target;
                     _kind = kind;
                     _phase = Phase.Walk;
                     SetStatus(kind == TargetKind.Drop ? "Collecting wood"
                         : kind == TargetKind.Log ? "Walking to a log"
+                        : kind == TargetKind.Stump ? "Walking to a stump"
                         : "Walking to a tree");
                 }
                 else
@@ -221,6 +228,23 @@ namespace DvergrWorkers
                 return true;
             }
 
+            // Clear leftover stumps before felling anything new, so the area ends up tidier than it started.
+            kind = TargetKind.Stump;
+            if (_stumpsCleared < WorkerConfig.StumpsPerRound.Value)
+            {
+                foreach (Destructible stump in Object.FindObjectsByType<Destructible>(FindObjectsSortMode.None))
+                {
+                    if (IsStump(stump))
+                    {
+                        Consider(stump.gameObject, stump.m_minToolTier <= toolTier, from, ref best, ref target);
+                    }
+                }
+                if (target != null)
+                {
+                    return true;
+                }
+            }
+
             kind = TargetKind.Tree;
             if (_treesChopped >= WorkerConfig.TreesPerRound.Value)
             {
@@ -231,6 +255,33 @@ namespace DvergrWorkers
                 Consider(tree.gameObject, tree.m_minToolTier <= toolTier, from, ref best, ref target);
             }
             return target != null;
+        }
+
+        /// <summary>Tree stumps are Destructibles of type Tree named like "Beech_Stub"; player pieces are never touched.</summary>
+        private static bool IsStump(Destructible destructible)
+        {
+            if (destructible == null || destructible.m_destructibleType != DestructibleType.Tree
+                || destructible.GetComponent<Piece>() != null)
+            {
+                return false;
+            }
+            string name = destructible.gameObject.name.ToLowerInvariant();
+            return name.Contains("stub") || name.Contains("stump");
+        }
+
+        /// <summary>
+        /// Where reach is measured to. Standing trees and stumps are measured to their trunk axis, because
+        /// their colliders include the crown and would make a tree look close from far away.
+        /// </summary>
+        private static Vector3 ReachPoint(GameObject target, TargetKind kind, Vector3 from)
+        {
+            if (kind == TargetKind.Tree || kind == TargetKind.Stump)
+            {
+                Vector3 axis = target.transform.position;
+                axis.y = Mathf.Clamp(from.y, axis.y, axis.y + 2f);
+                return axis;
+            }
+            return WorkerNavigator.ClosestPointOnColliders(target, from);
         }
 
         private void Consider(GameObject go, bool usable, Vector3 from, ref float best, ref GameObject target)
@@ -286,7 +337,9 @@ namespace DvergrWorkers
                     {
                         _phase = Phase.Windup;
                         _timer = WindupTime;
-                        SetStatus(_kind == TargetKind.Tree ? "Chopping a tree" : "Chopping a log");
+                        SetStatus(_kind == TargetKind.Tree ? "Chopping a tree"
+                            : _kind == TargetKind.Stump ? "Clearing a stump"
+                            : "Chopping a log");
                     }
                     break;
 

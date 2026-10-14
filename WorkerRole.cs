@@ -24,7 +24,7 @@ namespace DvergrWorkers
         public ChestUse Chests = ChestUse.None;
 
         public float DefaultInterval = 60f;
-        public float DefaultReach = 7f;
+        public float DefaultReach = 6f;
 
         public ConfigEntry<float> Interval { get; private set; }
         public ConfigEntry<float> Reach { get; private set; }
@@ -55,6 +55,7 @@ namespace DvergrWorkers
             BedDescription = "A bed for a Dvergr repairman. Once built, a Dvergr moves in and keeps the surrounding base in good repair.",
             BrainType = typeof(RepairWorker),
             ToolPrefab = "Hammer",
+            DefaultReach = 6f,
         };
 
         public static readonly WorkerRole Woodcutter = new WorkerRole
@@ -65,7 +66,7 @@ namespace DvergrWorkers
             ToolPrefab = "AxeIron",
             Chests = ChestUse.Output,
             DefaultInterval = 90f,
-            DefaultReach = 3f,
+            DefaultReach = 2.5f,
         };
 
         public static readonly WorkerRole Blacksmith = new WorkerRole

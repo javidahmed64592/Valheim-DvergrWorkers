@@ -59,6 +59,7 @@ namespace DvergrWorkers
         public static ConfigEntry<float> RespawnDelay;
         public static ConfigEntry<float> ThreatRadius;
         public static ConfigEntry<int> TreesPerRound;
+        public static ConfigEntry<int> StumpsPerRound;
         public static ConfigEntry<string> BlacksmithMachines;
         public static ConfigEntry<bool> FuelFromOutputChests;
         public static ConfigEntry<bool> WorkAtNight;
@@ -95,6 +96,8 @@ namespace DvergrWorkers
                 "Let the blacksmith take coal from output chests as fuel, so charcoal it makes can fuel the smelters.");
             TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
                 new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
+            StumpsPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "StumpsPerRound", 10,
+                new ConfigDescription("How many leftover tree stumps a woodcutter clears per round. 0 leaves stumps alone.", new AcceptableValueRange<int>(0, 50)));
         }
     }
 }

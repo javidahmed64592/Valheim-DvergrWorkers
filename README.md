@@ -24,7 +24,7 @@ They even fend off enemies attacking the base!
 Each job loop:
 
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
-- **Woodcutter Worker** - fells trees, chops logs, and collects wood within its work area.
+- **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
 
 ### Beds
@@ -40,13 +40,14 @@ The workers use input and output chests to store and retrieve materials needed f
 These chests must be within the worker's job radius to be used.
 Currently, the workers share input and output chests within their job radius.
 This may be changed in the future to allow for more complex chest management or individual chest assignments.
-Workers will not begin their jobs until the necessary input and output chests are available within their job radius and have sufficient space for the materials they need to store.
+Roles that need chests will not begin their jobs until they are built within the job radius: the repair worker needs none, the woodcutter needs an output chest, and the blacksmith needs both.
+If the output chests are full, the worker stops and the bed's hover text says so.
 
 ## Known limitations
 
 - The Dvergr workers do not have animations for their specific tasks so the visual representation may not accurately reflect their actions.
 - Items a worker is carrying are lost if it dies or unloads mid-trip.
-- Occasionally workers may get stuck or be prevented from reaching their work stations. They have tolerance for further reach if this happens but clear pathing would minimise how much this happens!
+- Occasionally workers may get stuck or be prevented from reaching their work stations. If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach. Clear pathing around the base minimises how often this happens!
 
 ## Roadmap
 
