@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.3.0";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -62,6 +62,8 @@ namespace DvergrWorkers
         public static ConfigEntry<int> StumpsPerRound;
         public static ConfigEntry<string> BlacksmithMachines;
         public static ConfigEntry<bool> FuelFromOutputChests;
+        public static ConfigEntry<string> RefuelerFuels;
+        public static ConfigEntry<float> RefuelBelow;
         public static ConfigEntry<bool> WorkAtNight;
         public static ConfigEntry<int> InventoryWidth;
         public static ConfigEntry<int> InventoryHeight;
@@ -94,6 +96,10 @@ namespace DvergrWorkers
                 "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
             FuelFromOutputChests = config.Bind(WorkerRoles.Blacksmith.Name, "FuelFromOutputChests", true,
                 "Let the blacksmith take coal from output chests as fuel, so charcoal it makes can fuel the smelters.");
+            RefuelerFuels = config.Bind(WorkerRoles.Refueler.Name, "Fuels", "Resin,Wood,Coal",
+                "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
+            RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
+                new ConfigDescription("A fire is topped up once its fuel falls to this fraction of its maximum.", new AcceptableValueRange<float>(0.1f, 1f)));
             TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
                 new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
             StumpsPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "StumpsPerRound", 10,

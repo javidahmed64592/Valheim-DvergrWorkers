@@ -79,7 +79,18 @@ namespace DvergrWorkers
             DefaultReach = 3f,
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith };
+        public static readonly WorkerRole Refueler = new WorkerRole
+        {
+            Name = "Refueler",
+            BedDescription = "A bed for a Dvergr refueler. Once built, a Dvergr moves in and keeps nearby torches, fires and braziers burning with resin, wood and coal from a Worker Input Chest.",
+            BrainType = typeof(RefuelerWorker),
+            ToolPrefab = "Lantern",
+            Chests = ChestUse.Input,
+            DefaultInterval = 60f,
+            DefaultReach = 3f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler };
 
         public static WorkerRole Get(string name)
         {
