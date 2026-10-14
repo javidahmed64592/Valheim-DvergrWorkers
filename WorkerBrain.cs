@@ -30,6 +30,7 @@ namespace DvergrWorkers
         private float _nextRound;
         private float _threatTimer;
         private float _bedCheckTimer;
+        private int _bedMissingChecks;
         private bool _threatened;
         private float _lastHealth;
         private bool _hasHome;
@@ -154,7 +155,7 @@ namespace DvergrWorkers
                 }
             }
 
-            if (!CheckBedStillExists(dt))
+            if (!CheckBelongsToBed(dt))
             {
                 return false;
             }
@@ -280,7 +281,11 @@ namespace DvergrWorkers
             }
         }
 
-        private bool CheckBedStillExists(float dt)
+        /// <summary>
+        /// Despawns this worker if it is a rogue: it belongs to no bed, its bed has been removed, or another
+        /// worker for the same bed is older. Returns false if the worker was removed.
+        /// </summary>
+        private bool CheckBelongsToBed(float dt)
         {
             _bedCheckTimer -= dt;
             if (_bedCheckTimer > 0f)
@@ -289,17 +294,81 @@ namespace DvergrWorkers
             }
             _bedCheckTimer = 10f;
 
-            ZDOID bedId = Nview.GetZDO().GetZDOID(WorkerBed.BedKey);
-            if (bedId == ZDOID.None || ZDOMan.instance.GetZDO(bedId) != null)
+            string bedId = BedId;
+            if (bedId.Length == 0)
             {
-                return true;
+                return Despawn("worker without a bed");
             }
 
-            // The bed was deconstructed: the worker leaves with it.
-            DvergrWorkersPlugin.Log.LogInfo("Bed removed, despawning worker");
+            // Two workers for one bed: the newer one goes.
+            foreach (WorkerBrain other in Instances.Values)
+            {
+                if (other != this && other.BedId == bedId && other.IsOlderThan(this))
+                {
+                    return Despawn("duplicate worker");
+                }
+            }
+
+            // The bed lives where the worker's home is, so once that area is loaded the bed must be there.
+            // Require it to be missing for several checks in a row so a bed that is still loading in is not mistaken for a removed one.
+            if (!WorkerBed.IsLoaded(bedId) && ZoneSystem.instance.IsZoneLoaded(Home))
+            {
+                if (++_bedMissingChecks >= 3)
+                {
+                    return Despawn("bed removed");
+                }
+            }
+            else
+            {
+                _bedMissingChecks = 0;
+            }
+            return true;
+        }
+
+        private bool Despawn(string reason)
+        {
+            DvergrWorkersPlugin.Log.LogInfo("Despawning " + Role.Name + " Dvergr: " + reason);
             Equipment.Discard();
             ZNetScene.instance.Destroy(gameObject);
             return false;
+        }
+
+        internal string BedId => Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.BedIdKey, "") : "";
+
+        private long Born => Nview.GetZDO().GetLong(WorkerBed.BornKey, long.MaxValue);
+
+        private bool IsOlderThan(WorkerBrain other)
+        {
+            long mine = Born;
+            long theirs = other.Born;
+            return mine != theirs ? mine < theirs : GetInstanceID() < other.GetInstanceID();
+        }
+
+        /// <summary>True if a worker for this bed is currently loaded.</summary>
+        public static bool IsLoaded(string bedId)
+        {
+            return FindLoaded(bedId) != null;
+        }
+
+        public static WorkerBrain FindLoaded(string bedId)
+        {
+            if (bedId.Length == 0)
+            {
+                return null;
+            }
+            foreach (WorkerBrain worker in Instances.Values)
+            {
+                if (worker != null && worker.BedId == bedId)
+                {
+                    return worker;
+                }
+            }
+            return null;
+        }
+
+        public string GetStatus()
+        {
+            return Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.StatusKey, "Idle") : "Idle";
         }
 
         protected void SetStatus(string status)

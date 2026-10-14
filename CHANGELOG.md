@@ -2,6 +2,7 @@
 
 ## 0.2.0
 
+- Fixed duplicate workers after loading a world: beds and workers are now linked by a persistent id instead of ZDOIDs (which the game reassigns on every load), beds check all existing workers before spawning, and any worker that belongs to no bed, or is a duplicate for its bed, removes itself.
 - Added Worker Input Chest and Worker Output Chest pieces (reinforced chest cost), tinted blue and green.
 - Workers use every chest of the right kind inside their job radius, closest first, and spread items across several chests.
 - Roles can declare which chests they need; until they exist the bed hover text reads "Needs an input/output chest nearby".
