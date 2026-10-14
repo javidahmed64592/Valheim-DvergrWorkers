@@ -3,6 +3,7 @@
 ## 0.3.0
 
 - Added the **Refueler Bed**: its Dvergr carries a Dvergr lantern and tops up torches, fires, braziers and hearths with resin, wood and coal from the input chest, returning any spare fuel afterwards.
+- Workers now pass items to each other through output chests: the blacksmith takes the woodcutter's wood for the kilns, and the blacksmith and refueler can use the blacksmith's coal. Only items another nearby worker makes are taken (`TakeFromOutputChests` setting), replacing the blacksmith's `FuelFromOutputChests` setting.
 - Added settings for which fuels the refueler uses and how low a fire must burn before it is topped up.
 
 ## 0.2.0

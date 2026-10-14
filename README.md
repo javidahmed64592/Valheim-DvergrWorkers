@@ -43,11 +43,16 @@ This may be changed in the future to allow for more complex chest management or 
 Workers that need chests will not begin their jobs until they are built within the job radius.
 If the output chests are full, the worker stops and the bed's hover text says so.
 
+Workers also pass items along to each other. If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal.
+Items no worker produces are never taken from output chests, so your finished goods stay put.
+This can be switched off with the `TakeFromOutputChests` setting.
+
 | Role | Required Chests |
 |------|-----------------|
 | Repair Worker | None |
 | Woodcutter Worker | Output Chest |
 | Blacksmith Worker | Input and Output Chests |
+| Refueler Worker | Input Chest |
 
 ## Known limitations
 
