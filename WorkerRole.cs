@@ -107,7 +107,23 @@ namespace DvergrWorkers
             DefaultReach = 3f,
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler };
+        public static readonly WorkerRole Farmer = new WorkerRole
+        {
+            Name = "Farmer",
+            BedDescription = "A bed for a Dvergr farmer. Once built, a Dvergr moves in, harvests crops and plants every free spot of tilled soil nearby using seeds from a Worker Input Chest, delivering the crops to a Worker Output Chest.",
+            BrainType = typeof(FarmerWorker),
+            ToolPrefab = "Cultivator",
+            Chests = ChestUse.Both,
+            Produces = new HashSet<string>
+            {
+                "$item_carrot", "$item_turnip", "$item_onion", "$item_flax", "$item_barley",
+                "$item_carrotseeds", "$item_turnipseeds", "$item_onionseeds", "$item_jotunpuffs", "$item_magecap",
+            },
+            DefaultInterval = 120f,
+            DefaultReach = 2.5f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler, Farmer };
 
         /// <summary>True if a worker role that makes this item has a bed within <paramref name="radius"/> of the point.</summary>
         public static bool IsProducedNearby(string sharedName, Vector3 point, float radius)

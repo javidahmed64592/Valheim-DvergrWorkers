@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Added the **Farmer Bed**: its Dvergr holds a cultivator, harvests ripe crops on your tilled soil, and plants every free spot, spreading the crops evenly. It uses seeds from the input chest, plants raw ingredients (carrots, turnips...) to make more seeds when they run low, respects each crop's biome, and ignores tree seeds. Crops go to output chests and seeds back to the input chest.
+- Added settings for the farmer's seed reserve and how many of a crop it plants per trip.
+
 ## 0.3.0
 
 - Added the **Refueler Bed**: its Dvergr carries a Dvergr lantern and tops up torches, fires, braziers and hearths with resin, wood and coal from the input chest, returning any spare fuel afterwards.
