@@ -30,6 +30,7 @@ namespace DvergrWorkers
         private float _nextRound;
         private float _threatTimer;
         private float _bedCheckTimer;
+        private int _bedMissingChecks;
         private bool _threatened;
         private float _lastHealth;
         private bool _hasHome;
@@ -43,11 +44,19 @@ namespace DvergrWorkers
         protected MonsterAI Ai { get; private set; }
         internal WorkerEquipment Equipment { get; private set; }
         internal WorkerNavigator Navigator { get; private set; }
+        internal WorkerLogistics Logistics { get; private set; }
+        internal WorkerAnimation Animation { get; private set; }
+
+        /// <summary>Optional reason shown on the bed instead of "Idle", e.g. "Waiting for items in the input chest".</summary>
+        protected string IdleNote { get; set; }
 
         /// <summary>Position of the worker's bed; the centre of its wander and job radius.</summary>
         protected Vector3 Home { get; private set; }
 
         protected bool InRound { get; private set; }
+
+        /// <summary>True while a task round is running and this worker is steering itself.</summary>
+        public bool IsWorking => InRound;
 
         // ------------------------------------------------------------ role hooks
 
@@ -81,6 +90,10 @@ namespace DvergrWorkers
             Ai = GetComponent<MonsterAI>();
             Equipment = new WorkerEquipment(Humanoid, Role.ToolPrefab);
             Navigator = new WorkerNavigator(Ai, Character, Role);
+            Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
+            Animation = new WorkerAnimation(Character, Role, () => Equipment.Tool);
+            Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
+            Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
             _nextRound = Time.time + FirstRoundDelay;
             Instances[gameObject] = this;
         }
@@ -142,7 +155,7 @@ namespace DvergrWorkers
                 }
             }
 
-            if (!CheckBedStillExists(dt))
+            if (!CheckBelongsToBed(dt))
             {
                 return false;
             }
@@ -166,7 +179,7 @@ namespace DvergrWorkers
                 return RunTask(dt);
             }
 
-            SetStatus(restTime ? "Resting" : IdleStatus());
+            SetStatus(restTime ? "Resting" : IdleNote ?? IdleStatus());
 
             if (_threatened || tookDamage || hasTarget || ai.IsAlerted())
             {
@@ -175,6 +188,12 @@ namespace DvergrWorkers
 
             if (!restTime && Time.time >= _nextRound)
             {
+                if (!ChestsReady())
+                {
+                    return Leash(dt);
+                }
+
+                IdleNote = null;
                 InRound = true;
                 if (BeginRound())
                 {
@@ -196,6 +215,25 @@ namespace DvergrWorkers
             Equipment.ReleaseTool();
             OnRoundEnded(finished);
             DvergrWorkersPlugin.Log.LogInfo(Role.Name + " round " + (finished ? "finished" : "interrupted"));
+        }
+
+        /// <summary>
+        /// A role that needs input and/or output chests does nothing until they are built within its job radius.
+        /// </summary>
+        private bool ChestsReady()
+        {
+            ChestUse needs = Role.Chests;
+            if ((needs & ChestUse.Input) != 0 && !Logistics.HasChest(ChestKind.Input))
+            {
+                IdleNote = "Needs an input chest nearby";
+                return false;
+            }
+            if ((needs & ChestUse.Output) != 0 && !Logistics.HasChest(ChestKind.Output))
+            {
+                IdleNote = "Needs an output chest nearby";
+                return false;
+            }
+            return true;
         }
 
         /// <summary>Keeps the idle worker inside its radius even if something pushed it out.</summary>
@@ -243,7 +281,11 @@ namespace DvergrWorkers
             }
         }
 
-        private bool CheckBedStillExists(float dt)
+        /// <summary>
+        /// Despawns this worker if it is a rogue: it belongs to no bed, its bed has been removed, or another
+        /// worker for the same bed is older. Returns false if the worker was removed.
+        /// </summary>
+        private bool CheckBelongsToBed(float dt)
         {
             _bedCheckTimer -= dt;
             if (_bedCheckTimer > 0f)
@@ -252,17 +294,81 @@ namespace DvergrWorkers
             }
             _bedCheckTimer = 10f;
 
-            ZDOID bedId = Nview.GetZDO().GetZDOID(WorkerBed.BedKey);
-            if (bedId == ZDOID.None || ZDOMan.instance.GetZDO(bedId) != null)
+            string bedId = BedId;
+            if (bedId.Length == 0)
             {
-                return true;
+                return Despawn("worker without a bed");
             }
 
-            // The bed was deconstructed: the worker leaves with it.
-            DvergrWorkersPlugin.Log.LogInfo("Bed removed, despawning worker");
+            // Two workers for one bed: the newer one goes.
+            foreach (WorkerBrain other in Instances.Values)
+            {
+                if (other != this && other.BedId == bedId && other.IsOlderThan(this))
+                {
+                    return Despawn("duplicate worker");
+                }
+            }
+
+            // The bed lives where the worker's home is, so once that area is loaded the bed must be there.
+            // Require it to be missing for several checks in a row so a bed that is still loading in is not mistaken for a removed one.
+            if (!WorkerBed.IsLoaded(bedId) && ZoneSystem.instance.IsZoneLoaded(Home))
+            {
+                if (++_bedMissingChecks >= 3)
+                {
+                    return Despawn("bed removed");
+                }
+            }
+            else
+            {
+                _bedMissingChecks = 0;
+            }
+            return true;
+        }
+
+        private bool Despawn(string reason)
+        {
+            DvergrWorkersPlugin.Log.LogInfo("Despawning " + Role.Name + " Dvergr: " + reason);
             Equipment.Discard();
             ZNetScene.instance.Destroy(gameObject);
             return false;
+        }
+
+        internal string BedId => Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.BedIdKey, "") : "";
+
+        private long Born => Nview.GetZDO().GetLong(WorkerBed.BornKey, long.MaxValue);
+
+        private bool IsOlderThan(WorkerBrain other)
+        {
+            long mine = Born;
+            long theirs = other.Born;
+            return mine != theirs ? mine < theirs : GetInstanceID() < other.GetInstanceID();
+        }
+
+        /// <summary>True if a worker for this bed is currently loaded.</summary>
+        public static bool IsLoaded(string bedId)
+        {
+            return FindLoaded(bedId) != null;
+        }
+
+        public static WorkerBrain FindLoaded(string bedId)
+        {
+            if (bedId.Length == 0)
+            {
+                return null;
+            }
+            foreach (WorkerBrain worker in Instances.Values)
+            {
+                if (worker != null && worker.BedId == bedId)
+                {
+                    return worker;
+                }
+            }
+            return null;
+        }
+
+        public string GetStatus()
+        {
+            return Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.StatusKey, "Idle") : "Idle";
         }
 
         protected void SetStatus(string status)

@@ -1,25 +1,60 @@
 # Dvergr Workers
 
-Dvergr workers help around your base and defend it when it is under attack.
+Dvergr workers help around your base and defend it when it is under attack:
 
-_Note: This mod is an early work in progress. The initial release only includes a basic repair NPC._
+- **Repair Worker** - fixes damaged structures around the base.
+- **Woodcutter Worker** - fells trees and collects wood.
+- **Blacksmith Worker** - manages smelters, kilns, and blast furnaces.
 
-![Dvergr Workers Example](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/game_screenshot.png)
+_Note: This mod is an early work in progress!_
 
-## Features
+![Repair Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/repair.png)
+![Woodcutter Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/woodcutter.png)
+![Blacksmith Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/blacksmith.png)
 
-- **Repair Bed** - a new buildable piece (Hammer menu, same cost as the basic bed). Building one spawns a Dvergr repairman who lives there. Players cannot claim or sleep in it.
-- **Repair job loop** - at a configurable interval, in daylight, the Dvergr picks up a hammer, walks to each damaged piece in range (nearest first, using the game's pathfinding) and repairs it.
-- **Stays home** - the Dvergr wanders and works only within one configurable radius of its bed.
-- **Respawns** - if the Dvergr is killed or lost, its bed spawns a replacement. Deconstructing the bed removes the Dvergr.
-- **Invincible to players, not to monsters** - players can't hurt a worker, but it drops its job and defends itself when enemies approach.
-- **Hover text** - the bed shows the worker's role and what it is doing (idle, resting, walking, repairing).
+## How It Works
+
+Dvergr workers each have a job to do around the base.
+They have designated beds that serve as their spawning point and their work area.
+They use chests for storing resources and materials needed for their tasks.
+They even fend off enemies attacking the base!
+
+### Roles
+
+Each job loop:
+
+- **Repair Worker** - finds all damaged pieces within its work area and repairs them.
+- **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
+- **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
+
+### Beds
+
+Each role has a buildable bed that spawns the corresponding worker.
+The worker will perform its tasks automatically within its designated area (a configurable radius around its bed).
+Workers will respawn if they die as long as their bed remains intact, and destroying the bed will despawn the worker.
+The bed's hover text indicates the worker's status (e.g., idle, working, resting, or waiting for resources).
+
+### Chests
+
+The workers use input and output chests to store and retrieve materials needed for their tasks.
+These chests must be within the worker's job radius to be used.
+Currently, the workers share input and output chests within their job radius.
+This may be changed in the future to allow for more complex chest management or individual chest assignments.
+Workers that need chests will not begin their jobs until they are built within the job radius.
+If the output chests are full, the worker stops and the bed's hover text says so.
+
+| Role | Required Chests |
+|------|-----------------|
+| Repair Worker | None |
+| Woodcutter Worker | Output Chest |
+| Blacksmith Worker | Input and Output Chests |
 
 ## Known limitations
 
-- The Dvergr animator has only crossbow animations, so the hammer swing is a poke and the idle pose stays crossbow-style.
-- Workers can occasionally get stuck against obstacles; they hammer from where they stand if close enough, or skip the piece until the next round.
+- The Dvergr workers do not have animations for their specific tasks so the visual representation may not accurately reflect their actions.
+- Items a worker is carrying are lost if it dies or unloads mid-trip.
+- Occasionally workers may get stuck or be prevented from reaching their work stations. If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach. Clear pathing around the base minimises how often this happens!
 
 ## Roadmap
 
-More roles (farmer, blacksmith, woodcutter, hunter, fisherman and others), input/output chests for workers, and social behaviour such as chatting, sleeping at night and greeting players.
+More roles, social behaviour such as chatting, sleeping at night and greeting players.

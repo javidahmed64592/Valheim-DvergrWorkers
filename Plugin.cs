@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -58,8 +58,13 @@ namespace DvergrWorkers
         public static ConfigEntry<float> JobRadius;
         public static ConfigEntry<float> RespawnDelay;
         public static ConfigEntry<float> ThreatRadius;
-        public static ConfigEntry<string> RepairAnimationTrigger;
+        public static ConfigEntry<int> TreesPerRound;
+        public static ConfigEntry<int> StumpsPerRound;
+        public static ConfigEntry<string> BlacksmithMachines;
+        public static ConfigEntry<bool> FuelFromOutputChests;
         public static ConfigEntry<bool> WorkAtNight;
+        public static ConfigEntry<int> InventoryWidth;
+        public static ConfigEntry<int> InventoryHeight;
 
         public static void Bind(ConfigFile config)
         {
@@ -75,13 +80,24 @@ namespace DvergrWorkers
             WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
                 "If false, workers rest at night and only work in daylight.");
 
+            InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
+                new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
+            InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
+                new ConfigDescription("Rows in a worker's own inventory.", new AcceptableValueRange<int>(1, 8)));
+
             foreach (WorkerRole role in WorkerRoles.All)
             {
                 role.BindConfig(config);
             }
 
-            RepairAnimationTrigger = config.Bind(WorkerRoles.Repair.Name, "AnimationTrigger", "",
-                "Animator trigger played when hammering. Leave empty to use the hammer's own attack animation.");
+            BlacksmithMachines = config.Bind(WorkerRoles.Blacksmith.Name, "Machines", "charcoal_kiln,smelter,blastfurnace",
+                "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
+            FuelFromOutputChests = config.Bind(WorkerRoles.Blacksmith.Name, "FuelFromOutputChests", true,
+                "Let the blacksmith take coal from output chests as fuel, so charcoal it makes can fuel the smelters.");
+            TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
+                new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
+            StumpsPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "StumpsPerRound", 10,
+                new ConfigDescription("How many leftover tree stumps a woodcutter clears per round. 0 leaves stumps alone.", new AcceptableValueRange<int>(0, 50)));
         }
     }
 }

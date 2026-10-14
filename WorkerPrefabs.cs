@@ -11,12 +11,77 @@ namespace DvergrWorkers
         private const string VanillaDvergr = "Dverger";
         private const string VanillaBed = "bed";
 
+        // The reinforced ("iron") chest. Worker chests copy its requirements.
+        private const string VanillaChest = "piece_chest";
+
         public static void RegisterAll()
         {
             foreach (WorkerRole role in WorkerRoles.All)
             {
                 RegisterWorker(role);
                 RegisterBed(role);
+            }
+
+            RegisterChest(ChestKind.Input, "Worker Input Chest", new Color(0.6f, 0.8f, 1f),
+                "Stores the materials your Dvergr workers need for their tasks. Workers within range use every input chest in their job radius, closest first.");
+            RegisterChest(ChestKind.Output, "Worker Output Chest", new Color(0.65f, 1f, 0.65f),
+                "Collects what your Dvergr workers produce. Workers within range use every output chest in their job radius, closest first.");
+        }
+
+        private static void RegisterChest(ChestKind kind, string displayName, Color tint, string description)
+        {
+            GameObject source = PrefabManager.Instance.GetPrefab(VanillaChest);
+            if (source == null)
+            {
+                DvergrWorkersPlugin.Log.LogError("Vanilla prefab not found: " + VanillaChest);
+                return;
+            }
+
+            string prefabName = "DW_" + kind + "Chest";
+            Piece sourcePiece = source.GetComponent<Piece>();
+            GameObject clone = PrefabManager.Instance.CreateClonedPrefab(prefabName, source);
+
+            clone.GetComponent<Container>().m_name = displayName;
+            clone.AddComponent<WorkerChest>().KindName = kind.ToString();
+            Tint(clone, tint);
+
+            var config = new PieceConfig
+            {
+                Name = displayName,
+                Description = description,
+                PieceTable = "Hammer",
+                Category = sourcePiece.m_category.ToString(),
+                CraftingStation = sourcePiece.m_craftingStation != null ? sourcePiece.m_craftingStation.name : "",
+                Requirements = sourcePiece.m_resources
+                    .Select(r => new RequirementConfig
+                    {
+                        Item = r.m_resItem.name,
+                        Amount = r.m_amount,
+                        Recover = r.m_recover
+                    })
+                    .ToArray()
+            };
+
+            PieceManager.Instance.AddPiece(new CustomPiece(clone, false, config));
+            DvergrWorkersPlugin.Log.LogInfo("Registered " + prefabName);
+        }
+
+        /// <summary>Colours the chest so input and output chests can be told apart at a glance.</summary>
+        private static void Tint(GameObject chest, Color tint)
+        {
+            foreach (Renderer renderer in chest.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer.GetType().Name == "ParticleSystemRenderer")
+                {
+                    continue;
+                }
+                foreach (Material material in renderer.materials)
+                {
+                    if (material.HasProperty("_Color"))
+                    {
+                        material.color = material.color * tint;
+                    }
+                }
             }
         }
 

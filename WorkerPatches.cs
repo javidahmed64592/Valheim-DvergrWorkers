@@ -30,4 +30,21 @@ namespace DvergrWorkers
             return true;
         }
     }
+
+    [HarmonyPatch(typeof(NpcTalk), "Update")]
+    internal static class NpcTalk_Update_Patch
+    {
+        // Vanilla Dvergr turn to face the nearest player whenever they are nearly stationary. That fights
+        // the worker's own steering (it makes them dither or wiggle at a chest or machine), so while a
+        // round is running only the speech queue is kept going.
+        private static bool Prefix(NpcTalk __instance)
+        {
+            if (WorkerBrain.TryGet(__instance.gameObject, out WorkerBrain worker) && worker.IsWorking)
+            {
+                __instance.UpdateSayQueue();
+                return false;
+            }
+            return true;
+        }
+    }
 }

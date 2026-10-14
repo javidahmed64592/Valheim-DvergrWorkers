@@ -20,11 +20,15 @@ namespace DvergrWorkers
         /// <summary>Item prefab the worker carries and holds while working, or null if it needs none.</summary>
         public string ToolPrefab;
 
+        /// <summary>Which worker chests must exist in range before this role starts its task loop.</summary>
+        public ChestUse Chests = ChestUse.None;
+
         public float DefaultInterval = 60f;
-        public float DefaultReach = 7f;
+        public float DefaultReach = 6f;
 
         public ConfigEntry<float> Interval { get; private set; }
         public ConfigEntry<float> Reach { get; private set; }
+        public ConfigEntry<string> AnimationTrigger { get; private set; }
 
         public string WorkerPrefab => "DW_" + Name + "Dvergr";
         public string BedPrefab => "DW_" + Name + "Bed";
@@ -38,6 +42,8 @@ namespace DvergrWorkers
             Reach = config.Bind(Name, "ReachDistance", DefaultReach,
                 new ConfigDescription("How close (metres) the worker must get to a target before working on it.",
                     new AcceptableValueRange<float>(1.5f, 12f)));
+            AnimationTrigger = config.Bind(Name, "AnimationTrigger", "",
+                "Animator trigger played when using the tool. Leave empty to pick one automatically.");
         }
     }
 
@@ -49,9 +55,31 @@ namespace DvergrWorkers
             BedDescription = "A bed for a Dvergr repairman. Once built, a Dvergr moves in and keeps the surrounding base in good repair.",
             BrainType = typeof(RepairWorker),
             ToolPrefab = "Hammer",
+            DefaultReach = 6f,
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair };
+        public static readonly WorkerRole Woodcutter = new WorkerRole
+        {
+            Name = "Woodcutter",
+            BedDescription = "A bed for a Dvergr woodcutter. Once built, a Dvergr moves in, fells trees around the base and stores the wood in Worker Output Chests.",
+            BrainType = typeof(WoodcutterWorker),
+            ToolPrefab = "AxeIron",
+            Chests = ChestUse.Output,
+            DefaultInterval = 90f,
+            DefaultReach = 2.5f,
+        };
+
+        public static readonly WorkerRole Blacksmith = new WorkerRole
+        {
+            Name = "Blacksmith",
+            BedDescription = "A bed for a Dvergr blacksmith. Once built, a Dvergr moves in and keeps nearby charcoal kilns, smelters and blast furnaces fed from Worker Input Chests, delivering the coal and metal to Worker Output Chests.",
+            BrainType = typeof(BlacksmithWorker),
+            Chests = ChestUse.Both,
+            DefaultInterval = 60f,
+            DefaultReach = 3f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith };
 
         public static WorkerRole Get(string name)
         {

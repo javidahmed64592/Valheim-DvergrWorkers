@@ -21,7 +21,6 @@ namespace DvergrWorkers
         private WearNTear _current;
         private int _repairedThisRound;
         private int _repairedLastRound;
-        private bool _animLogged;
 
         internal override WorkerRole Role => WorkerRoles.Repair;
 
@@ -229,86 +228,7 @@ namespace DvergrWorkers
                 }
             }
 
-            PlayHammerAnimation();
-        }
-
-        private void PlayHammerAnimation()
-        {
-            Animator animator = GetComponentInChildren<Animator>();
-            LogAnimatorOnce(animator);
-
-            string trigger = ResolveTrigger(animator);
-            if (!string.IsNullOrEmpty(trigger))
-            {
-                Character.m_zanim.SetTrigger(trigger);
-            }
-        }
-
-        /// <summary>Config override, then the hammer's own trigger, then any attack-like trigger the Dvergr's animator has.</summary>
-        private string ResolveTrigger(Animator animator)
-        {
-            string configured = WorkerConfig.RepairAnimationTrigger.Value;
-            if (!string.IsNullOrEmpty(configured))
-            {
-                return configured;
-            }
-
-            string hammerTrigger = Equipment.Tool?.m_shared.m_attack.m_attackAnimation;
-            if (animator == null || (!string.IsNullOrEmpty(hammerTrigger) && HasParameter(animator, hammerTrigger)))
-            {
-                return hammerTrigger;
-            }
-
-            foreach (AnimatorControllerParameter p in animator.parameters)
-            {
-                if (p.type == AnimatorControllerParameterType.Trigger
-                    && (p.name.Contains("attack") || p.name.Contains("swing")))
-                {
-                    return p.name;
-                }
-            }
-            return null;
-        }
-
-        private void LogAnimatorOnce(Animator animator)
-        {
-            if (_animLogged || animator == null)
-            {
-                return;
-            }
-            _animLogged = true;
-
-            var parameters = new List<string>();
-            foreach (AnimatorControllerParameter p in animator.parameters)
-            {
-                parameters.Add(p.name + ":" + p.type);
-            }
-            var clips = new List<string>();
-            if (animator.runtimeAnimatorController != null)
-            {
-                foreach (AnimationClip c in animator.runtimeAnimatorController.animationClips)
-                {
-                    clips.Add(c.name);
-                }
-            }
-
-            ItemDrop.ItemData tool = Equipment.Tool;
-            DvergrWorkersPlugin.Log.LogInfo("Dvergr animator parameters: " + string.Join(", ", parameters));
-            DvergrWorkersPlugin.Log.LogInfo("Dvergr animator clips: " + string.Join(", ", clips));
-            DvergrWorkersPlugin.Log.LogInfo("Hammer anim: trigger='" + tool?.m_shared.m_attack.m_attackAnimation
-                + "' state=" + tool?.m_shared.m_animationState + ", chosen trigger='" + ResolveTrigger(animator) + "'");
-        }
-
-        private static bool HasParameter(Animator animator, string name)
-        {
-            foreach (AnimatorControllerParameter p in animator.parameters)
-            {
-                if (p.name == name)
-                {
-                    return true;
-                }
-            }
-            return false;
+            Animation.PlaySwing();
         }
     }
 }
