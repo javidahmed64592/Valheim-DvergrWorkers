@@ -7,8 +7,8 @@ namespace DvergrWorkers
     /// <summary>
     /// Blacksmith role: keeps the charcoal kilns, smelters and blast furnaces inside the job radius fed and
     /// emptied. Each visit it collects finished product, then tops up fuel and ore from what it carries,
-    /// fetching from input chests first. Coal can also be taken from output chests, so the kiln's own
-    /// charcoal fuels the smelters. Finished coal and metal go to output chests.
+    /// fetching from input chests first, then from output chests holding something another worker makes
+    /// (the woodcutter's wood for the kiln, its own coal for the smelters). Finished coal and metal go to output chests.
     /// </summary>
     public class BlacksmithWorker : WorkerBrain
     {
@@ -179,15 +179,10 @@ namespace DvergrWorkers
             return false;
         }
 
-        private int Supply(string sharedName, bool fuel)
+        private int Supply(string sharedName)
         {
-            Func<ItemDrop.ItemData, bool> match = i => i.m_shared.m_name == sharedName;
-            int total = Logistics.Carried.CountItems(sharedName) + Logistics.CountInChests(ChestKind.Input, match);
-            if (fuel && WorkerConfig.FuelFromOutputChests.Value)
-            {
-                total += Logistics.CountInChests(ChestKind.Output, match);
-            }
-            return total;
+            return Logistics.Carried.CountItems(sharedName)
+                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
         }
 
         /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
@@ -205,7 +200,7 @@ namespace DvergrWorkers
                 string shared = machine.m_fuelItem.m_itemData.m_shared.m_name;
                 if (room > 0)
                 {
-                    int supply = Supply(shared, fuel: true);
+                    int supply = Supply(shared);
                     int users = 1;
                     if (fuelUsers != null && fuelUsers.TryGetValue(shared, out int counted))
                     {
@@ -246,7 +241,7 @@ namespace DvergrWorkers
                     }
 
                     string shared = conversion.m_from.m_itemData.m_shared.m_name;
-                    int take = Math.Min(room, Supply(shared, fuel: false));
+                    int take = Math.Min(room, Supply(shared));
                     if (take > 0)
                     {
                         any = true;
@@ -492,18 +487,7 @@ namespace DvergrWorkers
 
                 if (missing > 0)
                 {
-                    ChestKind? source = null;
-                    if (Logistics.CountInChests(ChestKind.Input, match) > 0)
-                    {
-                        source = ChestKind.Input;
-                    }
-                    else if (need.Fuel && WorkerConfig.FuelFromOutputChests.Value
-                        && Logistics.CountInChests(ChestKind.Output, match) > 0)
-                    {
-                        source = ChestKind.Output;
-                    }
-
-                    if (source.HasValue && Logistics.BeginFetch(match, missing, source.Value))
+                    if (Logistics.BeginFetchAny(match, missing))
                     {
                         _fetchActive = true;
                         SetStatus("Fetching " + need.SharedName.TrimStart('$').Replace("item_", "") + " from a chest");

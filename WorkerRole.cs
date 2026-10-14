@@ -1,6 +1,7 @@
 using BepInEx.Configuration;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace DvergrWorkers
 {
@@ -22,6 +23,13 @@ namespace DvergrWorkers
 
         /// <summary>Which worker chests must exist in range before this role starts its task loop.</summary>
         public ChestUse Chests = ChestUse.None;
+
+        /// <summary>
+        /// Items (by shared name) this role puts into output chests. Roles that need one of these items may
+        /// take it from output chests, as long as a worker of this role lives nearby, so one worker's output
+        /// becomes another's input without the player moving anything.
+        /// </summary>
+        public HashSet<string> Produces = new HashSet<string>();
 
         public float DefaultInterval = 60f;
         public float DefaultReach = 6f;
@@ -65,6 +73,10 @@ namespace DvergrWorkers
             BrainType = typeof(WoodcutterWorker),
             ToolPrefab = "AxeIron",
             Chests = ChestUse.Output,
+            Produces = new HashSet<string>
+            {
+                "$item_wood", "$item_finewood", "$item_corewood", "$item_elderbark", "$item_yggdrasilwood",
+            },
             DefaultInterval = 90f,
             DefaultReach = 2.5f,
         };
@@ -75,6 +87,11 @@ namespace DvergrWorkers
             BedDescription = "A bed for a Dvergr blacksmith. Once built, a Dvergr moves in and keeps nearby charcoal kilns, smelters and blast furnaces fed from Worker Input Chests, delivering the coal and metal to Worker Output Chests.",
             BrainType = typeof(BlacksmithWorker),
             Chests = ChestUse.Both,
+            Produces = new HashSet<string>
+            {
+                "$item_coal", "$item_copper", "$item_tin", "$item_bronze", "$item_iron", "$item_silver",
+                "$item_blackmetal", "$item_flametal",
+            },
             DefaultInterval = 60f,
             DefaultReach = 3f,
         };
@@ -91,6 +108,19 @@ namespace DvergrWorkers
         };
 
         public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler };
+
+        /// <summary>True if a worker role that makes this item has a bed within <paramref name="radius"/> of the point.</summary>
+        public static bool IsProducedNearby(string sharedName, Vector3 point, float radius)
+        {
+            foreach (WorkerRole role in All)
+            {
+                if (role.Produces.Contains(sharedName) && WorkerBed.HasBedNearby(role, point, radius))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         public static WorkerRole Get(string name)
         {

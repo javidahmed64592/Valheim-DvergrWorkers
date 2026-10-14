@@ -51,6 +51,19 @@ namespace DvergrWorkers
         /// <summary>The persistent id shared by this bed and its worker, or "" if the bed has not been given one yet.</summary>
         public string BedId => _nview != null && _nview.IsValid() ? _nview.GetZDO().GetString(BedIdKey, "") : "";
 
+        /// <summary>True if a loaded bed of this role is within <paramref name="radius"/> (horizontally) of the point.</summary>
+        internal static bool HasBedNearby(WorkerRole role, Vector3 point, float radius)
+        {
+            foreach (WorkerBed bed in Instances)
+            {
+                if (bed != null && bed.Role == role && Utils.DistanceXZ(bed.transform.position, point) <= radius)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>True if a bed with this id is currently loaded.</summary>
         public static bool IsLoaded(string bedId)
         {

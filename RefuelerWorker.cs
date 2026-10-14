@@ -6,7 +6,7 @@ namespace DvergrWorkers
 {
     /// <summary>
     /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood
-    /// or coal from the input chest, carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
+    /// or coal from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
     /// as it can in one trip and returns what is left over to the input chest.
     /// </summary>
     public class RefuelerWorker : WorkerBrain
@@ -113,7 +113,7 @@ namespace DvergrWorkers
         private int Supply(string sharedName)
         {
             return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountInChests(ChestKind.Input, i => i.m_shared.m_name == sharedName);
+                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
         }
 
         private bool CarryingFuel()
@@ -159,7 +159,7 @@ namespace DvergrWorkers
             if (!work)
             {
                 _refueledLastRound = 0;
-                IdleNote = _starved ? "Waiting for " + _missingFuel + " in the input chest" : null;
+                IdleNote = _starved ? "Waiting for " + _missingFuel + " in a chest" : null;
                 return false;
             }
 
@@ -229,7 +229,7 @@ namespace DvergrWorkers
                 }
                 if (_refueledThisRound == 0 && _starved)
                 {
-                    IdleNote = "Waiting for " + _missingFuel + " in the input chest";
+                    IdleNote = "Waiting for " + _missingFuel + " in a chest";
                 }
                 EndRound(finished: true);
                 return false;
@@ -253,7 +253,7 @@ namespace DvergrWorkers
             if (missing > 0)
             {
                 string shared = _fuelShared;
-                if (Logistics.BeginFetch(i => i.m_shared.m_name == shared, missing))
+                if (Logistics.BeginFetchAny(i => i.m_shared.m_name == shared, missing))
                 {
                     _phase = Phase.Fetch;
                     SetStatus("Fetching fuel from a chest");

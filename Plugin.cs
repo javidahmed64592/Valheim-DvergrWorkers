@@ -61,7 +61,7 @@ namespace DvergrWorkers
         public static ConfigEntry<int> TreesPerRound;
         public static ConfigEntry<int> StumpsPerRound;
         public static ConfigEntry<string> BlacksmithMachines;
-        public static ConfigEntry<bool> FuelFromOutputChests;
+        public static ConfigEntry<bool> TakeFromOutputChests;
         public static ConfigEntry<string> RefuelerFuels;
         public static ConfigEntry<float> RefuelBelow;
         public static ConfigEntry<bool> WorkAtNight;
@@ -82,6 +82,8 @@ namespace DvergrWorkers
             WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
                 "If false, workers rest at night and only work in daylight.");
 
+            TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
+                "Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched.");
             InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
                 new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
             InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
@@ -94,8 +96,6 @@ namespace DvergrWorkers
 
             BlacksmithMachines = config.Bind(WorkerRoles.Blacksmith.Name, "Machines", "charcoal_kiln,smelter,blastfurnace",
                 "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
-            FuelFromOutputChests = config.Bind(WorkerRoles.Blacksmith.Name, "FuelFromOutputChests", true,
-                "Let the blacksmith take coal from output chests as fuel, so charcoal it makes can fuel the smelters.");
             RefuelerFuels = config.Bind(WorkerRoles.Refueler.Name, "Fuels", "Resin,Wood,Coal",
                 "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
             RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
