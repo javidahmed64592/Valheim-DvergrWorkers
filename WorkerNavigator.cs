@@ -136,7 +136,9 @@ namespace DvergrWorkers
             _stuckTimer += dt;
             if (_stuckTimer >= StuckSampleInterval)
             {
-                _stuckStrikes = Vector3.Distance(_transform.position, _stuckSamplePos) < StuckDistance ? _stuckStrikes + 1 : 0;
+                // Movement is locked while an attack animation plays, so that is waiting, not being stuck.
+                bool moved = Vector3.Distance(_transform.position, _stuckSamplePos) >= StuckDistance || _character.InAttack();
+                _stuckStrikes = moved ? 0 : _stuckStrikes + 1;
                 _stuckSamplePos = _transform.position;
                 _stuckTimer = 0f;
 

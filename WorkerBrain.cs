@@ -54,6 +54,9 @@ namespace DvergrWorkers
 
         protected bool InRound { get; private set; }
 
+        /// <summary>True while a task round is running and this worker is steering itself.</summary>
+        public bool IsWorking => InRound;
+
         // ------------------------------------------------------------ role hooks
 
         /// <summary>Find this round's work. Return true if there is any (and the round should start).</summary>
