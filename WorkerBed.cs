@@ -51,6 +51,19 @@ namespace DvergrWorkers
         /// <summary>The persistent id shared by this bed and its worker, or "" if the bed has not been given one yet.</summary>
         public string BedId => _nview != null && _nview.IsValid() ? _nview.GetZDO().GetString(BedIdKey, "") : "";
 
+        /// <summary>True if a loaded bed of this role is within <paramref name="radius"/> (horizontally) of the point.</summary>
+        internal static bool HasBedNearby(WorkerRole role, Vector3 point, float radius)
+        {
+            foreach (WorkerBed bed in Instances)
+            {
+                if (bed != null && bed.Role == role && Utils.DistanceXZ(bed.transform.position, point) <= radius)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>True if a bed with this id is currently loaded.</summary>
         public static bool IsLoaded(string bedId)
         {
@@ -145,11 +158,7 @@ namespace DvergrWorkers
                 return;
             }
 
-            Vector3 pos = transform.position + transform.forward * 1.5f + Vector3.up * 0.5f;
-            if (ZoneSystem.instance.GetSolidHeight(pos, out float height))
-            {
-                pos.y = Mathf.Max(height, transform.position.y);
-            }
+            Vector3 pos = FindSpawnPoint();
 
             GameObject worker = Instantiate(prefab, pos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             ZDO workerZdo = worker.GetComponent<ZNetView>().GetZDO();
@@ -162,6 +171,34 @@ namespace DvergrWorkers
             worker.GetComponent<WorkerBrain>()?.OnBound();
 
             DvergrWorkersPlugin.Log.LogInfo(Role.Name + " Dvergr spawned at " + pos);
+        }
+
+        /// <summary>
+        /// Somewhere beside the bed at the bed's own level. The terrain height at that spot is no good: under a
+        /// roof or beside a cliff it is the top of whatever is above, which would drop the worker out of sight.
+        /// </summary>
+        private Vector3 FindSpawnPoint()
+        {
+            int mask = LayerMask.GetMask("Default", "static_solid", "terrain", "piece", "Default_small");
+            float bedY = transform.position.y;
+
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * Mathf.PI * 0.25f;
+                Vector3 offset = Quaternion.Euler(0f, transform.eulerAngles.y, 0f) * new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.5f;
+                Vector3 from = transform.position + offset;
+                from.y = bedY + 1.5f;
+
+                if (Physics.Raycast(from, Vector3.down, out RaycastHit hit, 4f, mask)
+                    && Mathf.Abs(hit.point.y - bedY) <= 1.5f
+                    && !Physics.CheckCapsule(hit.point + Vector3.up * 0.5f, hit.point + Vector3.up * 1.4f, 0.4f, mask))
+                {
+                    return hit.point + Vector3.up * 0.1f;
+                }
+            }
+
+            // Boxed in on every side: start on the bed itself.
+            return transform.position + Vector3.up * 0.5f;
         }
 
         public string GetHoverText()

@@ -73,6 +73,41 @@ namespace DvergrWorkers
         }
 
         /// <summary>
+        /// Whether an item in an output chest is fair game for this worker: another worker nearby makes it,
+        /// so it is meant to be passed on. Anything else in an output chest belongs to the player.
+        /// </summary>
+        public bool MayTakeFromOutput(ItemDrop.ItemData item)
+        {
+            return WorkerConfig.TakeFromOutputChests.Value
+                && WorkerRoles.IsProducedNearby(item.m_shared.m_name, _home(), _radius() * 2f);
+        }
+
+        /// <summary>How many matching items can be fetched from chests: input chests plus coordinated output chests.</summary>
+        public int CountAvailable(Func<ItemDrop.ItemData, bool> match)
+        {
+            return CountInChests(ChestKind.Input, match)
+                + CountInChests(ChestKind.Output, i => match(i) && MayTakeFromOutput(i));
+        }
+
+        /// <summary>Fetches from input chests first, then from output chests holding items another worker produced.</summary>
+        public bool BeginFetchAny(Func<ItemDrop.ItemData, bool> match, int maxCount = int.MaxValue)
+        {
+            if (CountInChests(ChestKind.Input, match) > 0 && BeginFetch(match, maxCount, ChestKind.Input))
+            {
+                return true;
+            }
+
+            Func<ItemDrop.ItemData, bool> coordinated = i => match(i) && MayTakeFromOutput(i);
+            if (CountInChests(ChestKind.Output, coordinated) > 0)
+            {
+                return BeginFetch(coordinated, maxCount, ChestKind.Output);
+            }
+
+            Reason = "No chest with the items needed";
+            return false;
+        }
+
+        /// <summary>
         /// Starts a trip to the closest chest of the given kind (input by default) holding wanted items,
         /// moving at most <paramref name="maxCount"/> of them. False if there is none.
         /// </summary>

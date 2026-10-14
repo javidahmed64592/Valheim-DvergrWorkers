@@ -14,13 +14,13 @@ The decompiled game is in this workspace `/home/javid/SecondarySSD/Programming/G
 ## Tasks
 
 - A repair NPC that goes around with a build hammer and repairs any damaged pieces - this is the only required one for the MVP. The rest are extensions.
-- A farmer NPC that harvests and plants crops
+- A woodcutter NPC that chops down trees and stores the logs in chests
 - A blacksmith NPC that smelts ore and makes charcoal from the kiln
+- A refueler NPC that refuels torches, fires and more with resin, coal and wood
+- A farmer NPC that harvests and plants crops (food specifically)
+- A tree farmer NPC that plants trees
 - A barley NPC that puts barley into windmills, and the processed barley flour into chests
 - An eitr NPC that puts sap and soft tissue into an eitr refinery, and the processed eitr into chests
-- A woodcutter NPC that chops down trees and stores the logs in chests
-- A hunter NPC that hunts animals and stores the meat and hides in chests
-- A fisherman NPC that catches fish and stores them in chests
 
 ## Spawning
 
