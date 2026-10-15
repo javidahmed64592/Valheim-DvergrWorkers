@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -168,7 +169,22 @@ namespace DvergrWorkers
         {
             if (Nview == null || !Nview.IsValid() || !Nview.IsOwner())
             {
+                _wasOwner = false;
                 return false;
+            }
+
+            // Whoever owns the worker holds its cargo: pick it up from the saved copy when ownership is gained
+            // (including on every world load), and keep that copy current while it is carried.
+            if (!_wasOwner)
+            {
+                _wasOwner = true;
+                LoadCargo();
+            }
+            _cargoTimer -= dt;
+            if (_cargoTimer <= 0f)
+            {
+                _cargoTimer = CargoSaveInterval;
+                SaveCargo();
             }
 
             if (!_hasHome)
@@ -353,9 +369,160 @@ namespace DvergrWorkers
         private bool Despawn(string reason)
         {
             DvergrWorkersPlugin.Log.LogInfo("Despawning " + Role.Name + " Dvergr: " + reason);
+            DropCargo();
             Equipment.Discard();
             ZNetScene.instance.Destroy(gameObject);
             return false;
+        }
+
+        // ------------------------------------------------------------ cargo
+
+        private const string CargoKey = "DW_Cargo";
+        private const float CargoSaveInterval = 1f;
+
+        private bool _wasOwner;
+        private float _cargoTimer;
+        private string _savedCargo = "";
+        private HashSet<string> _defaultNames;
+
+        /// <summary>
+        /// Items the Dvergr was given at spawn (its armour, its crossbow...) are not cargo. Everything else it picks
+        /// up or fetches, other than its tool, is.
+        /// </summary>
+        private bool IsCargo(ItemDrop.ItemData item)
+        {
+            if (item == null || item.m_equipped || item.m_dropPrefab == null)
+            {
+                return false;
+            }
+            if (!string.IsNullOrEmpty(Role.ToolPrefab) && item.m_dropPrefab.name == Role.ToolPrefab)
+            {
+                return false;
+            }
+            return !DefaultItemNames().Contains(item.m_shared.m_name);
+        }
+
+        private HashSet<string> DefaultItemNames()
+        {
+            if (_defaultNames != null)
+            {
+                return _defaultNames;
+            }
+
+            _defaultNames = new HashSet<string>();
+            var prefabs = new List<GameObject>();
+            prefabs.AddRange(Humanoid.m_defaultItems);
+            prefabs.AddRange(Humanoid.m_randomWeapon);
+            prefabs.AddRange(Humanoid.m_randomArmor);
+            prefabs.AddRange(Humanoid.m_randomShield);
+            foreach (Humanoid.ItemSet set in Humanoid.m_randomSets)
+            {
+                prefabs.AddRange(set.m_items);
+            }
+            foreach (Humanoid.RandomItem random in Humanoid.m_randomItems)
+            {
+                prefabs.Add(random.m_prefab);
+            }
+
+            foreach (GameObject prefab in prefabs)
+            {
+                ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
+                if (drop != null)
+                {
+                    _defaultNames.Add(drop.m_itemData.m_shared.m_name);
+                }
+            }
+            return _defaultNames;
+        }
+
+        private List<ItemDrop.ItemData> CargoItems()
+        {
+            var cargo = new List<ItemDrop.ItemData>();
+            foreach (ItemDrop.ItemData item in Humanoid.GetInventory().GetAllItems())
+            {
+                if (IsCargo(item))
+                {
+                    cargo.Add(item);
+                }
+            }
+            return cargo;
+        }
+
+        /// <summary>Writes what the worker is carrying into its saved data, so it survives the worker being unloaded.</summary>
+        private void SaveCargo()
+        {
+            var parts = new List<string>();
+            foreach (ItemDrop.ItemData item in CargoItems())
+            {
+                parts.Add(item.m_dropPrefab.name + "|" + item.m_stack + "|" + item.m_quality);
+            }
+
+            string cargo = string.Join(";", parts);
+            if (cargo != _savedCargo)
+            {
+                _savedCargo = cargo;
+                Nview.GetZDO().Set(CargoKey, cargo);
+            }
+        }
+
+        private void LoadCargo()
+        {
+            Inventory inventory = Humanoid.GetInventory();
+            foreach (ItemDrop.ItemData stale in CargoItems())
+            {
+                inventory.RemoveItem(stale);
+            }
+
+            _savedCargo = Nview.GetZDO().GetString(CargoKey, "");
+            if (_savedCargo.Length == 0)
+            {
+                return;
+            }
+
+            foreach (string entry in _savedCargo.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] fields = entry.Split('|');
+                GameObject prefab = fields.Length >= 2 ? ObjectDB.instance.GetItemPrefab(fields[0]) : null;
+                if (prefab == null || !int.TryParse(fields[1], out int amount))
+                {
+                    continue;
+                }
+
+                int max = prefab.GetComponent<ItemDrop>().m_itemData.m_shared.m_maxStackSize;
+                while (amount > 0)
+                {
+                    int stack = Math.Min(amount, max);
+                    inventory.AddItem(prefab, stack);
+                    amount -= stack;
+                }
+            }
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " Dvergr is carrying its saved items again");
+        }
+
+        /// <summary>Puts everything the worker is carrying on the ground where it stands (it died, or its bed was removed).</summary>
+        internal void DropCargo()
+        {
+            if (Nview == null || !Nview.IsValid() || !Nview.IsOwner())
+            {
+                return;
+            }
+
+            Inventory inventory = Humanoid.GetInventory();
+            int dropped = 0;
+            foreach (ItemDrop.ItemData item in CargoItems())
+            {
+                Vector3 position = transform.position + Vector3.up * 0.5f + UnityEngine.Random.insideUnitSphere * 0.3f;
+                ItemDrop.DropItem(item, item.m_stack, position, Quaternion.Euler(0f, UnityEngine.Random.Range(0, 360), 0f));
+                inventory.RemoveItem(item);
+                dropped++;
+            }
+
+            _savedCargo = "";
+            Nview.GetZDO().Set(CargoKey, "");
+            if (dropped > 0)
+            {
+                DvergrWorkersPlugin.Log.LogInfo(Role.Name + " Dvergr dropped " + dropped + " carried stack(s)");
+            }
         }
 
         internal string BedId => Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.BedIdKey, "") : "";
