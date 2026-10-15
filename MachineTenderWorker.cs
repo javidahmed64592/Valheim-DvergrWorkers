@@ -313,6 +313,21 @@ namespace DvergrWorkers
             return false;
         }
 
+        private static string JoinNames(IEnumerable<string> names)
+        {
+            var readable = new List<string>();
+            foreach (string name in names)
+            {
+                readable.Add(name.EndsWith("seeds") && name.Length > 5 ? name.Substring(0, name.Length - 5) + " seeds" : name);
+            }
+
+            if (readable.Count <= 1)
+            {
+                return string.Join("", readable);
+            }
+            return string.Join(", ", readable.GetRange(0, readable.Count - 1)) + " or " + readable[readable.Count - 1];
+        }
+
         /// <summary>Says what the machines are short of, e.g. "Waiting for coal and ore in a chest".</summary>
         private string WaitingNote()
         {
@@ -323,8 +338,8 @@ namespace DvergrWorkers
             }
             if (_missingOre.Count > 0)
             {
-                // Name the item when there is one or two ("barley"); a smelter takes many ores, so just say "ore".
-                parts.Add(_missingOre.Count <= 2 ? string.Join(" or ", _missingOre) : "ore");
+                // Name the items when there are only a few ("barley, oat seeds or oat"); a smelter takes many, so say "items".
+                parts.Add(_missingOre.Count <= 3 ? JoinNames(_missingOre) : "items");
             }
             return "Waiting for " + string.Join(" and ", parts) + " in a chest";
         }
