@@ -63,6 +63,7 @@ namespace DvergrWorkers
         public static ConfigEntry<string> BlacksmithMachines;
         public static ConfigEntry<string> BarleyMachines;
         public static ConfigEntry<string> FlaxMachines;
+        public static ConfigEntry<string> EitrMachines;
         public static ConfigEntry<bool> TakeFromOutputChests;
         public static ConfigEntry<string> RefuelerFuels;
         public static ConfigEntry<float> RefuelBelow;
@@ -107,6 +108,8 @@ namespace DvergrWorkers
                 "Comma-separated prefab names of the windmills the barley worker tends.");
             FlaxMachines = config.Bind(WorkerRoles.Flax.Name, "Machines", "piece_spinningwheel",
                 "Comma-separated prefab names of the spinning wheels the flax worker tends.");
+            EitrMachines = config.Bind(WorkerRoles.Eitr.Name, "Machines", "eitrrefinery",
+                "Comma-separated prefab names of the eitr refineries the eitr worker tends.");
             RefuelerFuels = config.Bind(WorkerRoles.Refueler.Name, "Fuels", "Resin,Wood,Coal",
                 "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
             RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
