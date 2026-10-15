@@ -20,6 +20,7 @@ The decompiled game is in this workspace `/home/javid/SecondarySSD/Programming/G
 - A farmer NPC that harvests and plants crops (food specifically)
 - A tree farmer NPC that plants trees
 - A barley NPC that puts barley into windmills, and the processed barley flour into chests
+- A flax NPC that puts flax into spinning wheels, and the processed thread into chests
 - An eitr NPC that puts sap and soft tissue into an eitr refinery, and the processed eitr into chests
 
 ## Spawning

@@ -30,9 +30,9 @@ Each job loop:
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
 - **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
-- **Farmer Worker** - holds a cultivator, harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area. It never tills, so you decide where the farm is. It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low. Each crop is only planted in the biome it grows in, and tree seeds are ignored. Crops go to the output chests and seeds back to the input chest.
-- **Tree Farmer Worker** - holds a cultivator and plants tree saplings from the seeds, cones, and acorns in the input chest on suitable ground within its work area. It plants species evenly, only where each grows, keeps well clear of buildings and farmland, and stops once the area holds a configurable number of trees. The woodcutter collects the seeds that felled trees drop, so the two keep a forest going.
-- **Refueler Worker** - carries a Dvergr lantern and tops up the torches, fires, and braziers you have built with resin, wood, and coal from the input chest, returning any spare fuel afterwards.
+- **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, wood, and coal from the input chest, returning any spare fuel afterwards.
+- **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area. It never tills, so you decide where the farm is. It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low. Each crop is only planted in the biome it grows in, and tree seeds are ignored. Crops go to the output chests and seeds back to the input chest.
+- **Tree Farmer Worker** - plants tree saplings from the seeds, cones, and acorns in the input chest on suitable ground within its work area. It plants species evenly, only where each grows, keeps well clear of buildings and farmland, and stops once the area holds a configurable number of trees. The woodcutter collects the seeds that felled trees drop, so the two keep a forest going.
 
 ### Beds
 
