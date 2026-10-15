@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.4.0";
+        public const string PluginVersion = "0.5.0";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -61,6 +61,8 @@ namespace DvergrWorkers
         public static ConfigEntry<int> TreesPerRound;
         public static ConfigEntry<int> StumpsPerRound;
         public static ConfigEntry<string> BlacksmithMachines;
+        public static ConfigEntry<string> BarleyMachines;
+        public static ConfigEntry<string> FlaxMachines;
         public static ConfigEntry<bool> TakeFromOutputChests;
         public static ConfigEntry<string> RefuelerFuels;
         public static ConfigEntry<float> RefuelBelow;
@@ -101,6 +103,10 @@ namespace DvergrWorkers
 
             BlacksmithMachines = config.Bind(WorkerRoles.Blacksmith.Name, "Machines", "charcoal_kiln,smelter,blastfurnace",
                 "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
+            BarleyMachines = config.Bind(WorkerRoles.Barley.Name, "Machines", "windmill",
+                "Comma-separated prefab names of the windmills the barley worker tends.");
+            FlaxMachines = config.Bind(WorkerRoles.Flax.Name, "Machines", "piece_spinningwheel",
+                "Comma-separated prefab names of the spinning wheels the flax worker tends.");
             RefuelerFuels = config.Bind(WorkerRoles.Refueler.Name, "Fuels", "Resin,Wood,Coal",
                 "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
             RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,

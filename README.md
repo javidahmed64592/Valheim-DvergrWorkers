@@ -8,6 +8,8 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Refueler Worker** - keeps torches, fires, and braziers topped up with fuel.
 - **Farmer Worker** - harvests crops and plants your tilled soil.
 - **Tree Farmer Worker** - plants trees from seeds.
+- **Barley Worker** - feeds windmills with barley and collects the flour.
+- **Flax Worker** - feeds spinning wheels with flax and collects the linen thread.
 
 _Note: This mod is an early work in progress!_
 
@@ -52,7 +54,7 @@ Workers that need chests will not begin their jobs until they are built within t
 If the output chests are full, the worker stops and the bed's hover text says so.
 
 Workers also pass items along to each other.
-If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal.
+If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal, and the barley and flax workers take the farmer's barley and flax.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
 
 | Role | Input Chest | Output Chest |
@@ -63,6 +65,8 @@ Items no worker produces are never taken from output chests, so your finished go
 | Refueler Worker | ✅ | ❌ |
 | Farmer Worker | ✅ | ✅ |
 | Tree Farmer Worker | ✅ | ❌ |
+| Barley Worker | ✅ | ✅ |
+| Flax Worker | ✅ | ✅ |
 
 ## Configuration
 

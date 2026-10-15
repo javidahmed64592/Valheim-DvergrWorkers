@@ -5,12 +5,15 @@ using UnityEngine;
 namespace DvergrWorkers
 {
     /// <summary>
-    /// Blacksmith role: keeps the charcoal kilns, smelters and blast furnaces inside the job radius fed and
+    /// Base for the roles that keep machines fed and emptied: the blacksmith (charcoal kilns, smelters and blast
+    /// furnaces), the barley worker (windmills) and the flax worker (spinning wheels). All of those machines are the
+    /// game's Smelter component, so one implementation serves them all; a role only says which machines it tends.
+    /// It keeps the machines inside the job radius fed and
     /// emptied. Each visit it collects finished product, then tops up fuel and ore from what it carries,
     /// fetching from input chests first, then from output chests holding something another worker makes
     /// (the woodcutter's wood for the kiln, its own coal for the smelters). Finished coal and metal go to output chests.
     /// </summary>
-    public class BlacksmithWorker : WorkerBrain
+    public abstract class MachineTenderWorker : WorkerBrain
     {
         private enum Phase { Plan, Fetch, Walk, Work, Deposit }
         private enum Stage { Empty, Collect, Feed }
@@ -52,7 +55,11 @@ namespace DvergrWorkers
         private readonly HashSet<Smelter> _unreachable = new HashSet<Smelter>();
         private readonly HashSet<string> _productNames = new HashSet<string>();
 
-        internal override WorkerRole Role => WorkerRoles.Blacksmith;
+        /// <summary>Comma-separated prefab names of the machines this role tends.</summary>
+        protected abstract string AllowedMachines { get; }
+
+        /// <summary>Shown on the bed when none of the role's machines are in range.</summary>
+        protected abstract string NoMachinesNote { get; }
 
         protected override string IdleStatus()
         {
@@ -113,11 +120,11 @@ namespace DvergrWorkers
             }
         }
 
-        /// <summary>Kilns, smelters and furnaces in the job area (windmills, refineries etc. are also Smelters and are ignored).</summary>
+        /// <summary>This role's machines in the job area. Other Smelter machines (refineries and so on) belong to other roles and are ignored.</summary>
         private List<Smelter> FindMachines()
         {
             var allowed = new HashSet<string>(
-                WorkerConfig.BlacksmithMachines.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+                AllowedMachines.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
             var found = new List<Smelter>();
             _productNames.Clear();
 
@@ -133,8 +140,8 @@ namespace DvergrWorkers
                 {
                     if (LoggedUnknown.Add(prefab))
                     {
-                        DvergrWorkersPlugin.Log.LogInfo("Blacksmith ignoring '" + prefab
-                            + "' (add it to Blacksmith.Machines to have the blacksmith tend it)");
+                        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " ignoring '" + prefab
+                            + "' (add it to " + Role.Name + ".Machines to have this worker tend it)");
                     }
                     continue;
                 }
@@ -303,7 +310,7 @@ namespace DvergrWorkers
             if (machines.Count == 0)
             {
                 _handledLastRound = 0;
-                IdleNote = "No kiln, smelter or furnace nearby";
+                IdleNote = NoMachinesNote;
                 return false;
             }
 
@@ -326,7 +333,7 @@ namespace DvergrWorkers
             }
 
             _phase = Phase.Plan;
-            DvergrWorkersPlugin.Log.LogInfo("Blacksmith round started with " + machines.Count + " machine(s)");
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " round started with " + machines.Count + " machine(s)");
             return true;
         }
 
@@ -350,7 +357,7 @@ namespace DvergrWorkers
 
         private bool Abort(string reason)
         {
-            DvergrWorkersPlugin.Log.LogInfo("Blacksmith stopping: " + reason);
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " stopping: " + reason);
             IdleNote = reason;
             EndRound(finished: false);
             return false;
@@ -472,7 +479,7 @@ namespace DvergrWorkers
                     case LogisticsResult.Moving:
                         return true;
                     case LogisticsResult.Failed:
-                        DvergrWorkersPlugin.Log.LogInfo("Blacksmith fetch failed: " + Logistics.Reason);
+                        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " fetch failed: " + Logistics.Reason);
                         break;
                 }
                 _fetchActive = false;
