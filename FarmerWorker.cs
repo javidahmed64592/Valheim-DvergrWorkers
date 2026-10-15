@@ -35,8 +35,11 @@ namespace DvergrWorkers
             public float Radius;
         }
 
-        /// <summary>Extra gap between plants, on top of the room each one needs.</summary>
-        private const float SpacingMargin = 0.15f;
+        /// <summary>
+        /// Extra gap between plants, on top of the room each one needs. The game measures a plant's room against
+        /// its neighbours' colliders, which have size, not against their centres.
+        /// </summary>
+        private const float SpacingMargin = 0.4f;
 
         private const string CultivatorPrefab = "Cultivator";
         private const float PlantTime = 0.6f;
@@ -297,6 +300,16 @@ namespace DvergrWorkers
                 }
             }
 
+            // Fully grown crops (pickables) block growth around them too.
+            foreach (Pickable pickable in UnityEngine.Object.FindObjectsByType<Pickable>(FindObjectsSortMode.None))
+            {
+                if (pickable != null && Utils.DistanceXZ(pickable.transform.position, Home) <= radius + 5f
+                    && IsCultivatedSpot(pickable.transform.position, out _))
+                {
+                    occupied.Add(new Occupied { Position = pickable.transform.position, Radius = type.Plant.m_growRadius });
+                }
+            }
+
             for (float x = -radius; x <= radius; x += CoarseStep)
             {
                 for (float z = -radius; z <= radius; z += CoarseStep)
@@ -321,7 +334,7 @@ namespace DvergrWorkers
                             wrongBiome++;
                             continue;
                         }
-                        if (Physics.CheckSphere(p + Vector3.up * 0.15f, type.Plant.m_growRadius, spaceMask)
+                        if (Physics.CheckSphere(p + Vector3.up * 0.15f, type.Plant.m_growRadius + 0.2f, spaceMask)
                             || Physics.Raycast(p + Vector3.up * 0.2f, Vector3.up, 100f, roofMask))
                         {
                             continue;
@@ -769,7 +782,7 @@ namespace DvergrWorkers
 
             // The spot may have been taken meanwhile; plant only where it is still valid.
             int spaceMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid");
-            if (seed != null && IsCultivatedSpot(spot, out _) && BiomeAllows(type, spot) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius, spaceMask))
+            if (seed != null && IsCultivatedSpot(spot, out _) && BiomeAllows(type, spot) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius + 0.2f, spaceMask))
             {
                 Logistics.Carried.RemoveItem(seed, type.Amount);
 
