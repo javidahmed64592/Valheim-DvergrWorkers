@@ -61,10 +61,15 @@ namespace DvergrWorkers
 
         // ---------------------------------------------------------------- helpers
 
+        /// <summary>The seeds and raw ingredients it plants.</summary>
+        internal override bool WantsItem(string sharedName)
+        {
+            return System.Linq.Enumerable.Any(PlantCatalogue.Crops, t => t.RequiredShared == sharedName);
+        }
+
         private int Supply(string sharedName)
         {
-            return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
+            return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
         }
 
         private bool IsOurs(ItemDrop.ItemData item)

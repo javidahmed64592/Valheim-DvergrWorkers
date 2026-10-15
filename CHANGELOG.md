@@ -5,6 +5,7 @@
 - Added the **Barley Bed**: its Dvergr feeds windmills with barley from the input chest, collects the flour, and delivers it to output chests.
 - Added the **Flax Bed**: its Dvergr feeds spinning wheels with flax from the input chest, collects the linen thread, and delivers it to output chests.
 - Both take the farmer's barley and flax from output chests, so the farm, the mill and the spinning wheel run without you moving anything.
+- Workers that use the same item now split the stock in the chests equally instead of one depleting it, so the farmer can replant barley or flax while the barley or flax worker processes the rest.
 - Added settings for which windmills and spinning wheels they tend.
 
 ## 0.4.0

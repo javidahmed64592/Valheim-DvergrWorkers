@@ -56,6 +56,35 @@ namespace DvergrWorkers
         private readonly HashSet<Smelter> _unreachable = new HashSet<Smelter>();
         private readonly HashSet<string> _productNames = new HashSet<string>();
 
+        private HashSet<string> _wanted = new HashSet<string>();
+        private float _wantedAt = -1000f;
+
+        /// <summary>Everything this worker's machines take: their ores and their fuel.</summary>
+        internal override bool WantsItem(string sharedName)
+        {
+            if (Time.time - _wantedAt > 10f)
+            {
+                _wantedAt = Time.time;
+                var wanted = new HashSet<string>();
+                foreach (Smelter machine in FindMachines())
+                {
+                    foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                    {
+                        if (conversion.m_from != null)
+                        {
+                            wanted.Add(conversion.m_from.m_itemData.m_shared.m_name);
+                        }
+                    }
+                    if (machine.m_fuelItem != null && machine.m_maxFuel > 0)
+                    {
+                        wanted.Add(machine.m_fuelItem.m_itemData.m_shared.m_name);
+                    }
+                }
+                _wanted = wanted;
+            }
+            return _wanted.Contains(sharedName);
+        }
+
         /// <summary>Comma-separated prefab names of the machines this role tends.</summary>
         protected abstract string AllowedMachines { get; }
 
@@ -189,8 +218,7 @@ namespace DvergrWorkers
 
         private int Supply(string sharedName)
         {
-            return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
+            return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
         }
 
         /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>

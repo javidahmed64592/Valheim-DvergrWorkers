@@ -56,6 +56,7 @@ If the output chests are full, the worker stops and the bed's hover text says so
 Workers also pass items along to each other.
 If another worker nearby makes an item, a worker that needs it will take it from the output chests.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
+When several workers use the same item, they split the stock of it equally rather than one taking it all. For example, the farmer can keep replanting barley while the barley worker mills the rest.
 
 | Role | Input Chest | Output Chest |
 |------|-------------|--------------|

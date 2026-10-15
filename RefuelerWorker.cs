@@ -45,6 +45,21 @@ namespace DvergrWorkers
 
         // ---------------------------------------------------------------- helpers
 
+        /// <summary>The fuels the refueler is allowed to use.</summary>
+        internal override bool WantsItem(string sharedName)
+        {
+            foreach (string name in WorkerConfig.RefuelerFuels.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                GameObject prefab = ObjectDB.instance.GetItemPrefab(name.Trim());
+                ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
+                if (drop != null && drop.m_itemData.m_shared.m_name == sharedName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private static bool IsValid(Fireplace fire)
         {
             return fire != null && fire.m_nview != null && fire.m_nview.IsValid();
@@ -112,8 +127,7 @@ namespace DvergrWorkers
 
         private int Supply(string sharedName)
         {
-            return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
+            return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
         }
 
         private bool CarryingFuel()

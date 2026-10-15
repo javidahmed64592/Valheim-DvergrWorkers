@@ -53,10 +53,15 @@ namespace DvergrWorkers
 
         // ---------------------------------------------------------------- helpers
 
+        /// <summary>The tree seeds, cones and acorns it plants.</summary>
+        internal override bool WantsItem(string sharedName)
+        {
+            return PlantCatalogue.TreeSeedNames.Contains(sharedName);
+        }
+
         private int Supply(string sharedName)
         {
-            return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
+            return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
         }
 
         private bool CarryingSeeds()

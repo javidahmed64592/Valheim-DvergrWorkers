@@ -60,6 +60,31 @@ namespace DvergrWorkers
 
         // ------------------------------------------------------------ role hooks
 
+        /// <summary>
+        /// Whether this worker's job uses the item (by shared name). Workers that use the same item share a chest's
+        /// stock of it equally, so one of them cannot take it all. Roles that consume items override this.
+        /// </summary>
+        internal virtual bool WantsItem(string sharedName)
+        {
+            return false;
+        }
+
+        /// <summary>How many loaded workers near a point use this item, and how much of it they are holding between them.</summary>
+        internal static void CountConsumers(string sharedName, Vector3 near, float radius, out int workers, out int carried)
+        {
+            workers = 0;
+            carried = 0;
+            foreach (WorkerBrain worker in Instances.Values)
+            {
+                if (worker != null && worker.Logistics != null && Utils.DistanceXZ(worker.Home, near) <= radius
+                    && worker.WantsItem(sharedName))
+                {
+                    workers++;
+                    carried += worker.Logistics.Carried.CountItems(sharedName);
+                }
+            }
+        }
+
         /// <summary>Find this round's work. Return true if there is any (and the round should start).</summary>
         protected abstract bool BeginRound();
 
