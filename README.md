@@ -8,6 +8,9 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Refueler Worker** - keeps torches, fires, and braziers topped up with fuel.
 - **Farmer Worker** - harvests crops and plants your tilled soil.
 - **Tree Farmer Worker** - plants trees from seeds.
+- **Barley Worker** - feeds windmills with barley and collects the flour.
+- **Flax Worker** - feeds spinning wheels with flax and collects the linen thread.
+- **Eitr Worker** - feeds eitr refineries with sap and soft tissue and collects the eitr.
 
 _Note: This mod is an early work in progress!_
 
@@ -31,8 +34,17 @@ Each job loop:
 - **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
 - **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, wood, and coal from the input chest, returning any spare fuel afterwards.
-- **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area. It never tills, so you decide where the farm is. It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low. Each crop is only planted in the biome it grows in, and tree seeds are ignored. Crops go to the output chests and seeds back to the input chest.
-- **Tree Farmer Worker** - plants tree saplings from the seeds, cones, and acorns in the input chest on suitable ground within its work area. It plants species evenly, only where each grows, keeps well clear of buildings and farmland, and stops once the area holds a configurable number of trees. The woodcutter collects the seeds that felled trees drop, so the two keep a forest going.
+- **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area.
+  It never tills, so you decide where the farm is.
+  It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low.
+  Each crop is only planted in the biome it grows in, and tree seeds are ignored.
+  Crops go to the output chests and seeds back to the input chest.
+- **Tree Farmer Worker** - plants tree saplings from the seeds, cones, and acorns in the input chest on suitable ground within its work area.
+  It plants species evenly, only where each grows, keeps well clear of buildings and farmland, and stops once the area holds a configurable number of trees.
+  The woodcutter collects the seeds that felled trees drop, so the two keep a forest going.
+- **Barley Worker** - keeps windmills within its work area fed with barley from the input chest, collects the flour, and delivers it to the output chests.
+- **Flax Worker** - keeps spinning wheels within its work area fed with flax from the input chest, collects the linen thread, and delivers it to the output chests.
+- **Eitr Worker** - keeps eitr refineries within its work area fed with sap and soft tissue from the input chest, collects the eitr, and delivers it to the output chests.
 
 ### Beds
 
@@ -52,8 +64,10 @@ Workers that need chests will not begin their jobs until they are built within t
 If the output chests are full, the worker stops and the bed's hover text says so.
 
 Workers also pass items along to each other.
-If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal.
+If another worker nearby makes an item, a worker that needs it will take it from the output chests.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
+When several workers use the same item, they split the stock of it equally rather than one taking it all.
+For example, the farmer can keep replanting barley while the barley worker mills the rest.
 
 | Role | Input Chest | Output Chest |
 |------|-------------|--------------|
@@ -63,6 +77,9 @@ Items no worker produces are never taken from output chests, so your finished go
 | Refueler Worker | ✅ | ❌ |
 | Farmer Worker | ✅ | ✅ |
 | Tree Farmer Worker | ✅ | ❌ |
+| Barley Worker | ✅ | ✅ |
+| Flax Worker | ✅ | ✅ |
+| Eitr Worker | ✅ | ✅ |
 
 ## Configuration
 
@@ -72,9 +89,10 @@ You can change the work radius, how often each role runs, how close workers need
 ## Known limitations
 
 - The Dvergr workers do not have animations for their specific tasks so the visual representation may not accurately reflect their actions.
-- Items a worker is carrying are lost if it dies or unloads mid-trip.
-- Occasionally workers may get stuck or be prevented from reaching their work stations. If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach. Clear pathing around the base minimises how often this happens!
+- Occasionally workers may get stuck or be prevented from reaching their work stations.
+  If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach.
+  Clear pathing around the base minimises how often this happens!
 
 ## Roadmap
 
-More roles (a farmer that plants on soil you have tilled, a tree farmer, and barley and eitr workers) and social behaviour such as chatting and greeting players.
+Social behaviour such as chatting and greeting players, and smarter inventory management for workers.

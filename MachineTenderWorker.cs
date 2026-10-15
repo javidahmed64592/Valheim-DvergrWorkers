@@ -5,12 +5,15 @@ using UnityEngine;
 namespace DvergrWorkers
 {
     /// <summary>
-    /// Blacksmith role: keeps the charcoal kilns, smelters and blast furnaces inside the job radius fed and
+    /// Base for the roles that keep machines fed and emptied: the blacksmith (charcoal kilns, smelters and blast
+    /// furnaces), the barley worker (windmills) and the flax worker (spinning wheels). All of those machines are the
+    /// game's Smelter component, so one implementation serves them all; a role only says which machines it tends.
+    /// It keeps the machines inside the job radius fed and
     /// emptied. Each visit it collects finished product, then tops up fuel and ore from what it carries,
     /// fetching from input chests first, then from output chests holding something another worker makes
     /// (the woodcutter's wood for the kiln, its own coal for the smelters). Finished coal and metal go to output chests.
     /// </summary>
-    public class BlacksmithWorker : WorkerBrain
+    public abstract class MachineTenderWorker : WorkerBrain
     {
         private enum Phase { Plan, Fetch, Walk, Work, Deposit }
         private enum Stage { Empty, Collect, Feed }
@@ -44,7 +47,8 @@ namespace DvergrWorkers
         private int _collectTries;
         private bool _starved;
         private string _missingFuel = "";
-        private bool _missingOre;
+        private readonly HashSet<string> _missingOre = new HashSet<string>();
+        private float _lastDiagnostic = -1000f;
         private bool _deliverFirst;
         private int _handled;
         private int _handledLastRound;
@@ -52,7 +56,40 @@ namespace DvergrWorkers
         private readonly HashSet<Smelter> _unreachable = new HashSet<Smelter>();
         private readonly HashSet<string> _productNames = new HashSet<string>();
 
-        internal override WorkerRole Role => WorkerRoles.Blacksmith;
+        private HashSet<string> _wanted = new HashSet<string>();
+        private float _wantedAt = -1000f;
+
+        /// <summary>Everything this worker's machines take: their ores and their fuel.</summary>
+        internal override bool WantsItem(string sharedName)
+        {
+            if (Time.time - _wantedAt > 10f)
+            {
+                _wantedAt = Time.time;
+                var wanted = new HashSet<string>();
+                foreach (Smelter machine in FindMachines())
+                {
+                    foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                    {
+                        if (conversion.m_from != null)
+                        {
+                            wanted.Add(conversion.m_from.m_itemData.m_shared.m_name);
+                        }
+                    }
+                    if (machine.m_fuelItem != null && machine.m_maxFuel > 0)
+                    {
+                        wanted.Add(machine.m_fuelItem.m_itemData.m_shared.m_name);
+                    }
+                }
+                _wanted = wanted;
+            }
+            return _wanted.Contains(sharedName);
+        }
+
+        /// <summary>Comma-separated prefab names of the machines this role tends.</summary>
+        protected abstract string AllowedMachines { get; }
+
+        /// <summary>Shown on the bed when none of the role's machines are in range.</summary>
+        protected abstract string NoMachinesNote { get; }
 
         protected override string IdleStatus()
         {
@@ -113,11 +150,11 @@ namespace DvergrWorkers
             }
         }
 
-        /// <summary>Kilns, smelters and furnaces in the job area (windmills, refineries etc. are also Smelters and are ignored).</summary>
+        /// <summary>This role's machines in the job area. Other Smelter machines (refineries and so on) belong to other roles and are ignored.</summary>
         private List<Smelter> FindMachines()
         {
             var allowed = new HashSet<string>(
-                WorkerConfig.BlacksmithMachines.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+                AllowedMachines.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
             var found = new List<Smelter>();
             _productNames.Clear();
 
@@ -133,8 +170,8 @@ namespace DvergrWorkers
                 {
                     if (LoggedUnknown.Add(prefab))
                     {
-                        DvergrWorkersPlugin.Log.LogInfo("Blacksmith ignoring '" + prefab
-                            + "' (add it to Blacksmith.Machines to have the blacksmith tend it)");
+                        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " ignoring '" + prefab
+                            + "' (add it to " + Role.Name + ".Machines to have this worker tend it)");
                     }
                     continue;
                 }
@@ -181,8 +218,7 @@ namespace DvergrWorkers
 
         private int Supply(string sharedName)
         {
-            return Logistics.Carried.CountItems(sharedName)
-                + Logistics.CountAvailable(i => i.m_shared.m_name == sharedName);
+            return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
         }
 
         /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
@@ -252,7 +288,13 @@ namespace DvergrWorkers
                 if (!any && room > 0)
                 {
                     _starved = true;
-                    _missingOre = true;
+                    foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                    {
+                        if (conversion.m_from != null)
+                        {
+                            _missingOre.Add(conversion.m_from.m_itemData.m_shared.m_name.Replace("$item_", ""));
+                        }
+                    }
                 }
             }
             return needs;
@@ -271,6 +313,21 @@ namespace DvergrWorkers
             return false;
         }
 
+        private static string JoinNames(IEnumerable<string> names)
+        {
+            var readable = new List<string>();
+            foreach (string name in names)
+            {
+                readable.Add(name.EndsWith("seeds") && name.Length > 5 ? name.Substring(0, name.Length - 5) + " seeds" : name);
+            }
+
+            if (readable.Count <= 1)
+            {
+                return string.Join("", readable);
+            }
+            return string.Join(", ", readable.GetRange(0, readable.Count - 1)) + " or " + readable[readable.Count - 1];
+        }
+
         /// <summary>Says what the machines are short of, e.g. "Waiting for coal and ore in a chest".</summary>
         private string WaitingNote()
         {
@@ -279,11 +336,42 @@ namespace DvergrWorkers
             {
                 parts.Add(_missingFuel);
             }
-            if (_missingOre)
+            if (_missingOre.Count > 0)
             {
-                parts.Add("ore");
+                // Name the items when there are only a few ("barley, oat seeds or oat"); a smelter takes many, so say "items".
+                parts.Add(_missingOre.Count <= 3 ? JoinNames(_missingOre) : "items");
             }
             return "Waiting for " + string.Join(" and ", parts) + " in a chest";
+        }
+
+        /// <summary>Explains, at most every couple of minutes, why a round did not start.</summary>
+        private void LogSupply(List<Smelter> machines)
+        {
+            if (Time.time - _lastDiagnostic < 120f)
+            {
+                return;
+            }
+            _lastDiagnostic = Time.time;
+
+            foreach (Smelter machine in machines)
+            {
+                var lines = new List<string>();
+                foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                {
+                    if (conversion.m_from == null)
+                    {
+                        continue;
+                    }
+                    string shared = conversion.m_from.m_itemData.m_shared.m_name;
+                    Func<ItemDrop.ItemData, bool> match = i => i.m_shared.m_name == shared;
+                    lines.Add(shared + " carried " + Logistics.Carried.CountItems(shared)
+                        + ", input " + Logistics.CountInChests(ChestKind.Input, match)
+                        + ", output " + Logistics.CountInChests(ChestKind.Output, match)
+                        + ", usable " + Logistics.CountAvailable(match));
+                }
+                DvergrWorkersPlugin.Log.LogInfo(Role.Name + " has nothing to do at " + PrefabOf(machine) + " (queue "
+                    + machine.GetQueueSize() + "/" + machine.m_maxOre + "): " + string.Join("; ", lines));
+            }
         }
 
         // ---------------------------------------------------------------- rounds
@@ -294,7 +382,7 @@ namespace DvergrWorkers
             _unreachable.Clear();
             _starved = false;
             _missingFuel = "";
-            _missingOre = false;
+            _missingOre.Clear();
             _handled = 0;
             _machine = null;
             _fetchActive = false;
@@ -303,7 +391,7 @@ namespace DvergrWorkers
             if (machines.Count == 0)
             {
                 _handledLastRound = 0;
-                IdleNote = "No kiln, smelter or furnace nearby";
+                IdleNote = NoMachinesNote;
                 return false;
             }
 
@@ -322,11 +410,12 @@ namespace DvergrWorkers
             {
                 _handledLastRound = 0;
                 IdleNote = _starved ? WaitingNote() : null;
+                LogSupply(machines);
                 return false;
             }
 
             _phase = Phase.Plan;
-            DvergrWorkersPlugin.Log.LogInfo("Blacksmith round started with " + machines.Count + " machine(s)");
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " round started with " + machines.Count + " machine(s)");
             return true;
         }
 
@@ -350,7 +439,7 @@ namespace DvergrWorkers
 
         private bool Abort(string reason)
         {
-            DvergrWorkersPlugin.Log.LogInfo("Blacksmith stopping: " + reason);
+            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " stopping: " + reason);
             IdleNote = reason;
             EndRound(finished: false);
             return false;
@@ -472,7 +561,7 @@ namespace DvergrWorkers
                     case LogisticsResult.Moving:
                         return true;
                     case LogisticsResult.Failed:
-                        DvergrWorkersPlugin.Log.LogInfo("Blacksmith fetch failed: " + Logistics.Reason);
+                        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " fetch failed: " + Logistics.Reason);
                         break;
                 }
                 _fetchActive = false;

@@ -79,7 +79,7 @@ namespace DvergrWorkers
         public bool MayTakeFromOutput(ItemDrop.ItemData item)
         {
             return WorkerConfig.TakeFromOutputChests.Value
-                && WorkerRoles.IsProducedNearby(item.m_shared.m_name, _home(), _radius() * 2f);
+                && WorkerRoles.IsProducedNearby(item.m_shared.m_name, _home(), _radius() * 3f);
         }
 
         /// <summary>How many matching items can be fetched from chests: input chests plus coordinated output chests.</summary>
@@ -87,6 +87,32 @@ namespace DvergrWorkers
         {
             return CountInChests(ChestKind.Input, match)
                 + CountInChests(ChestKind.Output, i => match(i) && MayTakeFromOutput(i));
+        }
+
+        /// <summary>
+        /// How much of an item this worker may still take from the chests. When several workers use the same item
+        /// they split the whole stock (chests plus what each is carrying) equally, so none of them can deplete
+        /// it. That leaves the rest for the others, for example the farmer replanting barley while the barley
+        /// worker mills it.
+        /// </summary>
+        public int AvailableTo(string sharedName)
+        {
+            int inChests = CountAvailable(i => i.m_shared.m_name == sharedName);
+            if (inChests <= 0)
+            {
+                return 0;
+            }
+
+            WorkerBrain.CountConsumers(sharedName, _home(), _radius() * 3f, out int workers, out int carriedByAll);
+            if (workers <= 1)
+            {
+                return inChests;
+            }
+
+            int pool = inChests + carriedByAll;
+            int share = (pool + workers - 1) / workers;
+            int mine = Carried.CountItems(sharedName);
+            return Math.Min(inChests, Math.Max(0, share - mine));
         }
 
         /// <summary>Fetches from input chests first, then from output chests holding items another worker produced.</summary>

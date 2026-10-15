@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- Added the **Barley Bed**: its Dvergr feeds windmills with barley from the input chest, collects the flour, and delivers it to output chests.
+- Added the **Flax Bed**: its Dvergr feeds spinning wheels with flax from the input chest, collects the linen thread, and delivers it to output chests.
+- Both take the farmer's barley and flax from output chests, so the farm, the mill and the spinning wheel run without you moving anything.
+- Added the **Eitr Bed**: its Dvergr feeds eitr refineries with sap and soft tissue from the input chest, collects the eitr, and delivers it to output chests.
+- Workers that use the same item now split the stock in the chests equally instead of one depleting it, so the farmer can replant barley or flax while the barley or flax worker processes the rest.
+- Workers now drop what they are carrying when they die or their bed is removed, and keep it when the world is saved and reloaded mid-trip.
+- Added settings for which windmills, spinning wheels and eitr refineries they tend.
+
 ## 0.4.0
 
 - Added the **Farmer Bed**: its Dvergr holds a cultivator, harvests ripe crops on your tilled soil, and plants every free spot, spreading the crops evenly. It uses seeds from the input chest, plants raw ingredients (carrots, turnips...) to make more seeds when they run low, respects each crop's biome, and ignores tree seeds. Crops go to output chests and seeds back to the input chest.
