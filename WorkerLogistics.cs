@@ -79,7 +79,7 @@ namespace DvergrWorkers
         public bool MayTakeFromOutput(ItemDrop.ItemData item)
         {
             return WorkerConfig.TakeFromOutputChests.Value
-                && WorkerRoles.IsProducedNearby(item.m_shared.m_name, _home(), _radius() * 2f);
+                && WorkerRoles.IsProducedNearby(item.m_shared.m_name, _home(), _radius() * 3f);
         }
 
         /// <summary>How many matching items can be fetched from chests: input chests plus coordinated output chests.</summary>

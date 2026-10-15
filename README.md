@@ -54,7 +54,7 @@ Workers that need chests will not begin their jobs until they are built within t
 If the output chests are full, the worker stops and the bed's hover text says so.
 
 Workers also pass items along to each other.
-If another worker nearby makes an item, a worker that needs it will take it from the output chests: the blacksmith takes the woodcutter's wood for the kilns, and the refueler takes the blacksmith's coal, and the barley and flax workers take the farmer's barley and flax.
+If another worker nearby makes an item, a worker that needs it will take it from the output chests.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
 
 | Role | Input Chest | Output Chest |
@@ -81,4 +81,4 @@ You can change the work radius, how often each role runs, how close workers need
 
 ## Roadmap
 
-More roles (a farmer that plants on soil you have tilled, a tree farmer, and barley and eitr workers) and social behaviour such as chatting and greeting players.
+Social behaviour such as chatting and greeting players, and smarter inventory management for workers.

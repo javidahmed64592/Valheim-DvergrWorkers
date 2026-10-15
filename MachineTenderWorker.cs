@@ -47,7 +47,8 @@ namespace DvergrWorkers
         private int _collectTries;
         private bool _starved;
         private string _missingFuel = "";
-        private bool _missingOre;
+        private readonly HashSet<string> _missingOre = new HashSet<string>();
+        private float _lastDiagnostic = -1000f;
         private bool _deliverFirst;
         private int _handled;
         private int _handledLastRound;
@@ -259,7 +260,13 @@ namespace DvergrWorkers
                 if (!any && room > 0)
                 {
                     _starved = true;
-                    _missingOre = true;
+                    foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                    {
+                        if (conversion.m_from != null)
+                        {
+                            _missingOre.Add(conversion.m_from.m_itemData.m_shared.m_name.Replace("$item_", ""));
+                        }
+                    }
                 }
             }
             return needs;
@@ -286,11 +293,42 @@ namespace DvergrWorkers
             {
                 parts.Add(_missingFuel);
             }
-            if (_missingOre)
+            if (_missingOre.Count > 0)
             {
-                parts.Add("ore");
+                // Name the item when there is one or two ("barley"); a smelter takes many ores, so just say "ore".
+                parts.Add(_missingOre.Count <= 2 ? string.Join(" or ", _missingOre) : "ore");
             }
             return "Waiting for " + string.Join(" and ", parts) + " in a chest";
+        }
+
+        /// <summary>Explains, at most every couple of minutes, why a round did not start.</summary>
+        private void LogSupply(List<Smelter> machines)
+        {
+            if (Time.time - _lastDiagnostic < 120f)
+            {
+                return;
+            }
+            _lastDiagnostic = Time.time;
+
+            foreach (Smelter machine in machines)
+            {
+                var lines = new List<string>();
+                foreach (Smelter.ItemConversion conversion in machine.m_conversion)
+                {
+                    if (conversion.m_from == null)
+                    {
+                        continue;
+                    }
+                    string shared = conversion.m_from.m_itemData.m_shared.m_name;
+                    Func<ItemDrop.ItemData, bool> match = i => i.m_shared.m_name == shared;
+                    lines.Add(shared + " carried " + Logistics.Carried.CountItems(shared)
+                        + ", input " + Logistics.CountInChests(ChestKind.Input, match)
+                        + ", output " + Logistics.CountInChests(ChestKind.Output, match)
+                        + ", usable " + Logistics.CountAvailable(match));
+                }
+                DvergrWorkersPlugin.Log.LogInfo(Role.Name + " has nothing to do at " + PrefabOf(machine) + " (queue "
+                    + machine.GetQueueSize() + "/" + machine.m_maxOre + "): " + string.Join("; ", lines));
+            }
         }
 
         // ---------------------------------------------------------------- rounds
@@ -301,7 +339,7 @@ namespace DvergrWorkers
             _unreachable.Clear();
             _starved = false;
             _missingFuel = "";
-            _missingOre = false;
+            _missingOre.Clear();
             _handled = 0;
             _machine = null;
             _fetchActive = false;
@@ -329,6 +367,7 @@ namespace DvergrWorkers
             {
                 _handledLastRound = 0;
                 IdleNote = _starved ? WaitingNote() : null;
+                LogSupply(machines);
                 return false;
             }
 
