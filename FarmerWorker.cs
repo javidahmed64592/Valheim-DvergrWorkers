@@ -52,6 +52,7 @@ namespace DvergrWorkers
         private int _handledLastRound;
         private bool _noSpots;
         private bool _noSupply;
+        private readonly HashSet<PlantType> _loggedBiome = new HashSet<PlantType>();
         private readonly HashSet<PlantType> _failedTypes = new HashSet<PlantType>();
         private readonly HashSet<Pickable> _failedPickables = new HashSet<Pickable>();
         private readonly HashSet<string> _ours = new HashSet<string>();
@@ -272,6 +273,7 @@ namespace DvergrWorkers
             int roofMask = LayerMask.GetMask("Default", "static_solid", "piece");
             float radius = WorkerConfig.JobRadius.Value;
             var spots = new List<Vector3>();
+            int wrongBiome = 0;
 
             for (float x = -radius; x <= radius; x += CoarseStep)
             {
@@ -288,8 +290,13 @@ namespace DvergrWorkers
                         Vector3 p = new Vector3(coarse.x + offset.x, 0f, coarse.z + offset.y);
                         p.y = ZoneSystem.instance.GetGroundHeight(p);
 
-                        if (!IsCultivatedSpot(p, out Heightmap heightmap) || (heightmap.GetBiome(p) & type.Plant.m_biome) == 0)
+                        if (!IsCultivatedSpot(p, out _))
                         {
+                            continue;
+                        }
+                        if (!BiomeAllows(type, p))
+                        {
+                            wrongBiome++;
                             continue;
                         }
                         if (Physics.CheckSphere(p + Vector3.up * 0.15f, type.Plant.m_growRadius, spaceMask)
@@ -309,6 +316,13 @@ namespace DvergrWorkers
                         }
                     }
                 }
+            }
+
+            if (spots.Count == 0 && wrongBiome > 0 && _loggedBiome.Add(type))
+            {
+                DvergrWorkersPlugin.Log.LogInfo("Farmer: " + type.Prefab.name + " cannot be planted here, wrong biome ("
+                    + Heightmap.FindBiome(Home) + " is not in plant biomes " + type.Plant.m_biome
+                    + (type.Piece.m_onlyInBiome != Heightmap.Biome.None ? ", piece biomes " + type.Piece.m_onlyInBiome : "") + ")");
             }
 
             Vector3 here = transform.position;
@@ -333,6 +347,21 @@ namespace DvergrWorkers
                 }
             }
             return chosen;
+        }
+
+        /// <summary>
+        /// A crop may only go in biomes the game allows. The game checks two things: the build piece's own biome
+        /// restriction when a player places it (the strict one) and the plant's growth biomes. Both must hold,
+        /// or the crop is planted somewhere it cannot grow.
+        /// </summary>
+        private static bool BiomeAllows(PlantType type, Vector3 p)
+        {
+            Heightmap.Biome biome = Heightmap.FindBiome(p);
+            if (type.Piece.m_onlyInBiome != Heightmap.Biome.None && (biome & type.Piece.m_onlyInBiome) == 0)
+            {
+                return false;
+            }
+            return (biome & type.Plant.m_biome) != 0;
         }
 
         /// <summary>
@@ -385,6 +414,7 @@ namespace DvergrWorkers
             _noSpots = false;
             _noSupply = false;
             _failedTypes.Clear();
+            _loggedBiome.Clear();
             _failedPickables.Clear();
             _plantedByFamily.Clear();
             _plantedSpots.Clear();
@@ -717,7 +747,7 @@ namespace DvergrWorkers
 
             // The spot may have been taken meanwhile; plant only where it is still valid.
             int spaceMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid");
-            if (seed != null && IsCultivatedSpot(spot, out _) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius, spaceMask))
+            if (seed != null && IsCultivatedSpot(spot, out _) && BiomeAllows(type, spot) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius, spaceMask))
             {
                 Logistics.Carried.RemoveItem(seed, type.Amount);
 
@@ -726,6 +756,8 @@ namespace DvergrWorkers
                 type.Piece.m_placeEffect.Create(spot, rotation, plant.transform);
                 Animation.PlaySwing();
 
+                DvergrWorkersPlugin.Log.LogInfo("Farmer planted " + type.Prefab.name + " in " + Heightmap.FindBiome(spot)
+                    + " (plant biomes " + type.Plant.m_biome + ", piece biomes " + type.Piece.m_onlyInBiome + ")");
                 _planted++;
                 _plantedSpots.Add(spot);
                 _plantedByFamily[type.Family] = (_plantedByFamily.TryGetValue(type.Family, out int n) ? n : 0) + 1;
