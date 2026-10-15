@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.3.0";
+        public const string PluginVersion = "0.4.0";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -64,6 +64,11 @@ namespace DvergrWorkers
         public static ConfigEntry<bool> TakeFromOutputChests;
         public static ConfigEntry<string> RefuelerFuels;
         public static ConfigEntry<float> RefuelBelow;
+        public static ConfigEntry<int> SeedReserve;
+        public static ConfigEntry<int> PlantsPerTrip;
+        public static ConfigEntry<int> MaxTrees;
+        public static ConfigEntry<int> TreesPerTrip;
+        public static ConfigEntry<float> TreeBuildingClearance;
         public static ConfigEntry<bool> WorkAtNight;
         public static ConfigEntry<int> InventoryWidth;
         public static ConfigEntry<int> InventoryHeight;
@@ -100,6 +105,16 @@ namespace DvergrWorkers
                 "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
             RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
                 new ConfigDescription("A fire is topped up once its fuel falls to this fraction of its maximum.", new AcceptableValueRange<float>(0.1f, 1f)));
+            SeedReserve = config.Bind(WorkerRoles.Farmer.Name, "SeedReserve", 4,
+                new ConfigDescription("The farmer plants raw ingredients (a carrot, a turnip...) to make more seeds once a crop's seeds fall to this many or fewer.", new AcceptableValueRange<int>(0, 50)));
+            PlantsPerTrip = config.Bind(WorkerRoles.Farmer.Name, "PlantsPerTrip", 8,
+                new ConfigDescription("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
+            MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
+                new ConfigDescription("The tree farmer stops planting once the job area holds this many trees and saplings, wild ones included.", new AcceptableValueRange<int>(1, 500)));
+            TreesPerTrip = config.Bind(WorkerRoles.TreeFarmer.Name, "TreesPerTrip", 5,
+                new ConfigDescription("How many of one species the tree farmer plants before moving on to the next.", new AcceptableValueRange<int>(1, 50)));
+            TreeBuildingClearance = config.Bind(WorkerRoles.TreeFarmer.Name, "BuildingClearance", 8f,
+                new ConfigDescription("Trees are never planted closer than this (metres) to any building piece.", new AcceptableValueRange<float>(1f, 40f)));
             TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
                 new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
             StumpsPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "StumpsPerRound", 10,

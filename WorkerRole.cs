@@ -40,8 +40,12 @@ namespace DvergrWorkers
 
         public string WorkerPrefab => "DW_" + Name + "Dvergr";
         public string BedPrefab => "DW_" + Name + "Bed";
-        public string BedName => Name + " Bed";
-        public string WorkerName => Name + " Dvergr";
+        /// <summary>Name shown to players when it differs from <see cref="Name"/> (which is used for config and prefabs).</summary>
+        public string DisplayName;
+
+        public string Title => DisplayName ?? Name;
+        public string BedName => Title + " Bed";
+        public string WorkerName => Title + " Dvergr";
 
         public void BindConfig(ConfigFile config)
         {
@@ -107,7 +111,35 @@ namespace DvergrWorkers
             DefaultReach = 3f,
         };
 
-        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler };
+        public static readonly WorkerRole Farmer = new WorkerRole
+        {
+            Name = "Farmer",
+            BedDescription = "A bed for a Dvergr farmer. Once built, a Dvergr moves in, harvests crops and plants every free spot of tilled soil nearby using seeds from a Worker Input Chest, delivering the crops to a Worker Output Chest.",
+            BrainType = typeof(FarmerWorker),
+            ToolPrefab = "Cultivator",
+            Chests = ChestUse.Both,
+            Produces = new HashSet<string>
+            {
+                "$item_carrot", "$item_turnip", "$item_onion", "$item_flax", "$item_barley",
+                "$item_carrotseeds", "$item_turnipseeds", "$item_onionseeds", "$item_jotunpuffs", "$item_magecap",
+            },
+            DefaultInterval = 120f,
+            DefaultReach = 2.5f,
+        };
+
+        public static readonly WorkerRole TreeFarmer = new WorkerRole
+        {
+            Name = "TreeFarmer",
+            DisplayName = "Tree Farmer",
+            BedDescription = "A bed for a Dvergr tree farmer. Once built, a Dvergr moves in and plants tree saplings on suitable ground nearby using tree seeds from a Worker Input Chest, keeping clear of buildings and farmland.",
+            BrainType = typeof(TreeFarmerWorker),
+            ToolPrefab = "Cultivator",
+            Chests = ChestUse.Input,
+            DefaultInterval = 180f,
+            DefaultReach = 2.5f,
+        };
+
+        public static readonly IReadOnlyList<WorkerRole> All = new List<WorkerRole> { Repair, Woodcutter, Blacksmith, Refueler, Farmer, TreeFarmer };
 
         /// <summary>True if a worker role that makes this item has a bed within <paramref name="radius"/> of the point.</summary>
         public static bool IsProducedNearby(string sharedName, Vector3 point, float radius)

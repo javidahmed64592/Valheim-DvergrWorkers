@@ -170,7 +170,7 @@ namespace DvergrWorkers
             _nview.GetZDO().Set(SpawnedKey, true);
             worker.GetComponent<WorkerBrain>()?.OnBound();
 
-            DvergrWorkersPlugin.Log.LogInfo(Role.Name + " Dvergr spawned at " + pos);
+            DvergrWorkersPlugin.Log.LogInfo(Role.Title + " Dvergr spawned at " + pos);
         }
 
         /// <summary>
@@ -209,7 +209,7 @@ namespace DvergrWorkers
                 WorkerBrain worker = WorkerBrain.FindLoaded(BedId);
                 status = worker != null ? worker.GetStatus() : "Waiting for a worker";
             }
-            return Role.Name + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + ChestLines();
+            return Role.Title + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + ChestLines();
         }
 
         /// <summary>For roles that need chests: how many are in range, in red when a required kind is missing.</summary>

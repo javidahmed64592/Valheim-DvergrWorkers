@@ -38,6 +38,14 @@ namespace DvergrWorkers
 
         internal override WorkerRole Role => WorkerRoles.Woodcutter;
 
+        protected override void Awake()
+        {
+            base.Awake();
+
+            // Make sure the tree seeds are registered as this role's output before anyone asks for them.
+            TreeSeeds();
+        }
+
         protected override string IdleStatus()
         {
             return _deliveredLastRound > 0
@@ -51,9 +59,29 @@ namespace DvergrWorkers
             _deliveredLastRound = _deliveredThisRound;
         }
 
+        /// <summary>Wood, plus the tree seeds, cones and acorns felled trees drop (the tree farmer plants those).</summary>
         private static bool IsWood(ItemDrop.ItemData item)
         {
-            return item != null && WoodItems.Contains(item.m_shared.m_name);
+            if (item == null)
+            {
+                return false;
+            }
+            string name = item.m_shared.m_name;
+            return WoodItems.Contains(name) || TreeSeeds().Contains(name);
+        }
+
+        private static HashSet<string> _treeSeeds;
+
+        private static HashSet<string> TreeSeeds()
+        {
+            if (_treeSeeds == null)
+            {
+                _treeSeeds = PlantCatalogue.TreeSeedNames;
+
+                // Tell the other workers that the woodcutter is a source of these.
+                WorkerRoles.Woodcutter.Produces.UnionWith(_treeSeeds);
+            }
+            return _treeSeeds;
         }
 
         private bool CarryingWood()
