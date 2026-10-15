@@ -15,33 +15,6 @@ namespace DvergrWorkers
     {
         private enum Phase { Plan, Fetch, Walk, Plant, Harvest, Collect, Deposit }
 
-        /// <summary>One plantable crop from the cultivator's build menu.</summary>
-        private sealed class PlantType
-        {
-            public GameObject Prefab;
-            public Piece Piece;
-            public Plant Plant;
-            public string RequiredShared;
-            public int Amount;
-            public bool Raw;
-            public string Family;
-            public string YieldShared;
-        }
-
-        /// <summary>A planted spot and how much room that plant needs around itself to grow.</summary>
-        private struct Occupied
-        {
-            public Vector3 Position;
-            public float Radius;
-        }
-
-        /// <summary>
-        /// Extra gap between plants, on top of the room each one needs. The game measures a plant's room against
-        /// its neighbours' colliders, which have size, not against their centres.
-        /// </summary>
-        private const float SpacingMargin = 0.4f;
-
-        private const string CultivatorPrefab = "Cultivator";
         private const float PlantTime = 0.6f;
         private const float HarvestWait = 0.9f;
         private const float CollectInterval = 0.3f;
@@ -50,8 +23,6 @@ namespace DvergrWorkers
         private const int FullSlots = 2;
         private const float FineStep = 0.5f;
         private const float CoarseStep = 1f;
-
-        private static List<PlantType> _types;
 
         private Phase _phase = Phase.Plan;
         private PlantType _batchType;
@@ -88,83 +59,6 @@ namespace DvergrWorkers
             _handledLastRound = _planted + _harvested;
         }
 
-        // ---------------------------------------------------------------- plant catalogue
-
-        /// <summary>Reads the crops from the cultivator's build menu once. Trees and vines are left out.</summary>
-        private static List<PlantType> Types()
-        {
-            if (_types != null)
-            {
-                return _types;
-            }
-
-            _types = new List<PlantType>();
-            GameObject cultivator = ObjectDB.instance.GetItemPrefab(CultivatorPrefab);
-            PieceTable table = cultivator != null ? cultivator.GetComponent<ItemDrop>().m_itemData.m_shared.m_buildPieces : null;
-            if (table == null)
-            {
-                DvergrWorkersPlugin.Log.LogError("Farmer: cultivator piece table not found");
-                return _types;
-            }
-
-            foreach (GameObject prefab in table.m_pieces)
-            {
-                Piece piece = prefab.GetComponent<Piece>();
-                Plant plant = prefab.GetComponent<Plant>();
-                if (piece == null || plant == null || plant.m_grownPrefabs.Length == 0 || plant.m_attachDistance > 0f
-                    || piece.m_resources.Length == 0 || piece.m_resources[0].m_resItem == null)
-                {
-                    continue;
-                }
-
-                GameObject grown = plant.m_grownPrefabs[0];
-                Pickable pickable = grown.GetComponent<Pickable>();
-                if (grown.GetComponent<TreeBase>() != null || pickable == null || pickable.m_itemPrefab == null)
-                {
-                    continue;
-                }
-
-                string required = piece.m_resources[0].m_resItem.m_itemData.m_shared.m_name;
-                string yield = pickable.m_itemPrefab.GetComponent<ItemDrop>().m_itemData.m_shared.m_name;
-
-                // A plant whose harvest is seeds is a raw ingredient being planted to make more seeds.
-                bool yieldsSeeds = IsSeedName(yield) && !IsSeedName(required);
-                var type = new PlantType
-                {
-                    Prefab = prefab,
-                    Piece = piece,
-                    Plant = plant,
-                    RequiredShared = required,
-                    Amount = Math.Max(1, piece.m_resources[0].m_amount),
-                    Raw = yieldsSeeds,
-                    YieldShared = yield,
-                    Family = IsSeedName(required) ? yield : required,
-                };
-                _types.Add(type);
-                DvergrWorkersPlugin.Log.LogInfo("Farmer crop: " + prefab.name + " (needs " + required + ", room " + plant.m_growRadius + "m, yields " + yield
-                    + (type.Raw ? ", raw" : "") + ", family " + type.Family + ")");
-            }
-            return _types;
-        }
-
-        private static bool IsSeedName(string sharedName)
-        {
-            return sharedName.ToLowerInvariant().Contains("seed");
-        }
-
-        private static PlantType TypeOf(GameObject go)
-        {
-            string name = Utils.GetPrefabName(go);
-            foreach (PlantType type in Types())
-            {
-                if (type.Prefab.name == name)
-                {
-                    return type;
-                }
-            }
-            return null;
-        }
-
         // ---------------------------------------------------------------- helpers
 
         private int Supply(string sharedName)
@@ -182,7 +76,7 @@ namespace DvergrWorkers
         {
             foreach (ItemDrop.ItemData item in Logistics.Carried.GetAllItems())
             {
-                if (IsOurs(item) && IsSeedName(item.m_shared.m_name))
+                if (IsOurs(item) && PlantCatalogue.IsSeedName(item.m_shared.m_name))
                 {
                     return true;
                 }
@@ -194,7 +88,7 @@ namespace DvergrWorkers
         {
             foreach (ItemDrop.ItemData item in Logistics.Carried.GetAllItems())
             {
-                if (IsOurs(item) && !IsSeedName(item.m_shared.m_name))
+                if (IsOurs(item) && !PlantCatalogue.IsSeedName(item.m_shared.m_name))
                 {
                     return true;
                 }
@@ -231,7 +125,7 @@ namespace DvergrWorkers
         private Dictionary<string, int> CountFamilies()
         {
             var counts = new Dictionary<string, int>();
-            foreach (PlantType type in Types())
+            foreach (PlantType type in PlantCatalogue.Crops)
             {
                 counts[type.Family] = 0;
             }
@@ -240,7 +134,11 @@ namespace DvergrWorkers
             {
                 if (plant != null && InJobArea(plant.transform.position))
                 {
-                    PlantType type = TypeOf(plant.gameObject);
+                    PlantType type = PlantCatalogue.Of(plant.gameObject);
+                    if (type != null && type.IsTree)
+                    {
+                        type = null;
+                    }
                     if (type != null)
                     {
                         counts[type.Family]++;
@@ -256,7 +154,7 @@ namespace DvergrWorkers
                     continue;
                 }
                 string yield = pickable.m_itemPrefab.GetComponent<ItemDrop>().m_itemData.m_shared.m_name;
-                foreach (PlantType type in Types())
+                foreach (PlantType type in PlantCatalogue.Crops)
                 {
                     if (type.YieldShared == yield)
                     {
@@ -329,7 +227,7 @@ namespace DvergrWorkers
                         {
                             continue;
                         }
-                        if (!BiomeAllows(type, p))
+                        if (!PlantCatalogue.BiomeAllows(type, p))
                         {
                             wrongBiome++;
                             continue;
@@ -343,7 +241,7 @@ namespace DvergrWorkers
                         bool crowded = false;
                         foreach (Occupied other in occupied)
                         {
-                            crowded |= Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + SpacingMargin;
+                            crowded |= Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + PlantCatalogue.SpacingMargin;
                         }
                         if (!crowded)
                         {
@@ -370,7 +268,7 @@ namespace DvergrWorkers
                 bool crowded = false;
                 foreach (Vector3 other in chosen)
                 {
-                    crowded |= Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + SpacingMargin;
+                    crowded |= Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + PlantCatalogue.SpacingMargin;
                 }
                 if (!crowded)
                 {
@@ -385,21 +283,6 @@ namespace DvergrWorkers
         }
 
         /// <summary>
-        /// A crop may only go in biomes the game allows. The game checks two things: the build piece's own biome
-        /// restriction when a player places it (the strict one) and the plant's growth biomes. Both must hold,
-        /// or the crop is planted somewhere it cannot grow.
-        /// </summary>
-        private static bool BiomeAllows(PlantType type, Vector3 p)
-        {
-            Heightmap.Biome biome = Heightmap.FindBiome(p);
-            if (type.Piece.m_onlyInBiome != Heightmap.Biome.None && (biome & type.Piece.m_onlyInBiome) == 0)
-            {
-                return false;
-            }
-            return (biome & type.Plant.m_biome) != 0;
-        }
-
-        /// <summary>
         /// Picks what to plant next: the crop with the fewest plants so far, using seeds while there are more
         /// than the reserve, then raw ingredients to make more seeds, and the reserve only as a last resort.
         /// </summary>
@@ -407,7 +290,7 @@ namespace DvergrWorkers
         {
             PlantType seed = null;
             PlantType raw = null;
-            foreach (PlantType type in Types())
+            foreach (PlantType type in PlantCatalogue.Crops)
             {
                 if (type.Family != family || _failedTypes.Contains(type))
                 {
@@ -457,7 +340,7 @@ namespace DvergrWorkers
             _batchType = null;
             _harvest = null;
 
-            if (Types().Count == 0)
+            if (!System.Linq.Enumerable.Any(PlantCatalogue.Crops))
             {
                 IdleNote = "No crops found in the cultivator";
                 return false;
@@ -782,7 +665,7 @@ namespace DvergrWorkers
 
             // The spot may have been taken meanwhile; plant only where it is still valid.
             int spaceMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid");
-            if (seed != null && IsCultivatedSpot(spot, out _) && BiomeAllows(type, spot) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius + 0.2f, spaceMask))
+            if (seed != null && IsCultivatedSpot(spot, out _) && PlantCatalogue.BiomeAllows(type, spot) && !Physics.CheckSphere(spot + Vector3.up * 0.15f, type.Plant.m_growRadius + 0.2f, spaceMask))
             {
                 Logistics.Carried.RemoveItem(seed, type.Amount);
 
@@ -876,7 +759,7 @@ namespace DvergrWorkers
         {
             if (CarryingOther())
             {
-                if (!Logistics.BeginDeposit(i => IsOurs(i) && !IsSeedName(i.m_shared.m_name), ChestKind.Output))
+                if (!Logistics.BeginDeposit(i => IsOurs(i) && !PlantCatalogue.IsSeedName(i.m_shared.m_name), ChestKind.Output))
                 {
                     return Abort(Logistics.Reason);
                 }
@@ -887,7 +770,7 @@ namespace DvergrWorkers
 
             if (CarryingSeeds())
             {
-                if (!Logistics.BeginDeposit(i => IsOurs(i) && IsSeedName(i.m_shared.m_name), ChestKind.Input))
+                if (!Logistics.BeginDeposit(i => IsOurs(i) && PlantCatalogue.IsSeedName(i.m_shared.m_name), ChestKind.Input))
                 {
                     // Nowhere to put the seeds: keep them and use them next round.
                     EndRound(finished: true);
