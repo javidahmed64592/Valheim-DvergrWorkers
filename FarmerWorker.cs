@@ -28,6 +28,16 @@ namespace DvergrWorkers
             public string YieldShared;
         }
 
+        /// <summary>A planted spot and how much room that plant needs around itself to grow.</summary>
+        private struct Occupied
+        {
+            public Vector3 Position;
+            public float Radius;
+        }
+
+        /// <summary>Extra gap between plants, on top of the room each one needs.</summary>
+        private const float SpacingMargin = 0.15f;
+
         private const string CultivatorPrefab = "Cultivator";
         private const float PlantTime = 0.6f;
         private const float HarvestWait = 0.9f;
@@ -57,7 +67,7 @@ namespace DvergrWorkers
         private readonly HashSet<Pickable> _failedPickables = new HashSet<Pickable>();
         private readonly HashSet<string> _ours = new HashSet<string>();
         private readonly Dictionary<string, int> _plantedByFamily = new Dictionary<string, int>();
-        private readonly List<Vector3> _plantedSpots = new List<Vector3>();
+        private readonly List<Occupied> _plantedSpots = new List<Occupied>();
 
         internal override WorkerRole Role => WorkerRoles.Farmer;
 
@@ -128,7 +138,7 @@ namespace DvergrWorkers
                     Family = IsSeedName(required) ? yield : required,
                 };
                 _types.Add(type);
-                DvergrWorkersPlugin.Log.LogInfo("Farmer crop: " + prefab.name + " (needs " + required + ", yields " + yield
+                DvergrWorkersPlugin.Log.LogInfo("Farmer crop: " + prefab.name + " (needs " + required + ", room " + plant.m_growRadius + "m, yields " + yield
                     + (type.Raw ? ", raw" : "") + ", family " + type.Family + ")");
             }
             return _types;
@@ -275,6 +285,18 @@ namespace DvergrWorkers
             var spots = new List<Vector3>();
             int wrongBiome = 0;
 
+            // Every plant needs a clear circle around itself to grow, so a new plant must be at least as far
+            // from each neighbour as the larger of the two circles. Checking only the new plant's own circle
+            // would let it squeeze in next to a plant that needs more room, and starve that one.
+            var occupied = new List<Occupied>(_plantedSpots);
+            foreach (Plant plant in UnityEngine.Object.FindObjectsByType<Plant>(FindObjectsSortMode.None))
+            {
+                if (plant != null && Utils.DistanceXZ(plant.transform.position, Home) <= radius + 5f)
+                {
+                    occupied.Add(new Occupied { Position = plant.transform.position, Radius = plant.m_growRadius });
+                }
+            }
+
             for (float x = -radius; x <= radius; x += CoarseStep)
             {
                 for (float z = -radius; z <= radius; z += CoarseStep)
@@ -306,9 +328,9 @@ namespace DvergrWorkers
                         }
 
                         bool crowded = false;
-                        foreach (Vector3 planted in _plantedSpots)
+                        foreach (Occupied other in occupied)
                         {
-                            crowded |= Vector3.Distance(planted, p) < type.Plant.m_growRadius;
+                            crowded |= Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + SpacingMargin;
                         }
                         if (!crowded)
                         {
@@ -335,7 +357,7 @@ namespace DvergrWorkers
                 bool crowded = false;
                 foreach (Vector3 other in chosen)
                 {
-                    crowded |= Vector3.Distance(other, spot) < type.Plant.m_growRadius;
+                    crowded |= Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + SpacingMargin;
                 }
                 if (!crowded)
                 {
@@ -759,7 +781,7 @@ namespace DvergrWorkers
                 DvergrWorkersPlugin.Log.LogInfo("Farmer planted " + type.Prefab.name + " in " + Heightmap.FindBiome(spot)
                     + " (plant biomes " + type.Plant.m_biome + ", piece biomes " + type.Piece.m_onlyInBiome + ")");
                 _planted++;
-                _plantedSpots.Add(spot);
+                _plantedSpots.Add(new Occupied { Position = spot, Radius = type.Plant.m_growRadius });
                 _plantedByFamily[type.Family] = (_plantedByFamily.TryGetValue(type.Family, out int n) ? n : 0) + 1;
                 SetStatus("Planting " + type.Prefab.name.Replace("sapling_", ""));
             }
