@@ -43,6 +43,7 @@ namespace DvergrWorkers
 
         private Func<Vector3, Vector3> _closestPoint;
         private string _targetName;
+        private bool _rememberFailure;
         private Vector3 _standPoint;
         private float _walkTimer;
         private float _stuckTimer;
@@ -90,11 +91,18 @@ namespace DvergrWorkers
         /// Picks where to stand for the target. Returns false if no spot can be reached. On success the
         /// navigator is armed and <see cref="Step"/> should be called each frame.
         /// </summary>
-        public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint)
+        public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint, bool rememberFailure = false)
         {
             _closestPoint = closestPoint;
             _targetName = targetName;
-            if (!FindStandPoint(out _standPoint))
+            _rememberFailure = rememberFailure;
+
+            // A target this worker already gave up on is not worth walking to again for a while.
+            if (rememberFailure && UnreachableSpots.IsKnown(closestPoint(_transform.position)))
+            {
+                return false;
+            }
+            if (!FindStandPoint(out _standPoint, strict: false))
             {
                 return false;
             }
@@ -160,6 +168,11 @@ namespace DvergrWorkers
             {
                 DvergrWorkersPlugin.Log.LogInfo("Stopped short of " + _targetName + " but close enough");
                 return NavResult.CloseEnough;
+            }
+
+            if (_rememberFailure)
+            {
+                UnreachableSpots.Add(_closestPoint(_transform.position));
             }
 
             DvergrWorkersPlugin.Log.LogInfo("Could not reach " + _targetName + " (arrived=" + arrived
@@ -233,7 +246,25 @@ namespace DvergrWorkers
         /// reachable by a full navmesh path, and returns the one with the shortest walk. If none qualifies,
         /// falls back to whichever partial-path end gets closest to the target.
         /// </summary>
-        private bool FindStandPoint(out Vector3 best)
+        /// <summary>
+        /// Whether there is a standing spot within reach of the target that the worker can walk to along a full
+        /// path from where it is now. Used to drop planting spots that sit behind a wall before walking to them.
+        /// </summary>
+        public bool CanReach(Func<Vector3, Vector3> closestPoint)
+        {
+            Func<Vector3, Vector3> previous = _closestPoint;
+            _closestPoint = closestPoint;
+            try
+            {
+                return FindStandPoint(out _, strict: true);
+            }
+            finally
+            {
+                _closestPoint = previous;
+            }
+        }
+
+        private bool FindStandPoint(out Vector3 best, bool strict)
         {
             best = Vector3.zero;
             if (InReach(_transform.position))
@@ -248,7 +279,7 @@ namespace DvergrWorkers
             float bestGap = float.MaxValue;
             bool found = false;
 
-            for (int pass = 0; pass < 2 && !found; pass++)
+            for (int pass = 0; pass < (strict ? 1 : 2) && !found; pass++)
             {
                 for (float radius = 0f; radius <= reach; radius += StandRingStep)
                 {

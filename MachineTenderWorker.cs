@@ -85,7 +85,7 @@ namespace DvergrWorkers
             return _wanted.Contains(sharedName);
         }
 
-        /// <summary>Comma-separated prefab names of the machines this role tends.</summary>
+        /// <summary>Comma-separated prefab names of the vanilla machines this role tends.</summary>
         protected abstract string AllowedMachines { get; }
 
         /// <summary>Shown on the bed when none of the role's machines are in range.</summary>
@@ -170,8 +170,7 @@ namespace DvergrWorkers
                 {
                     if (LoggedUnknown.Add(prefab))
                     {
-                        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " ignoring '" + prefab
-                            + "' (add it to " + Role.Name + ".Machines to have this worker tend it)");
+                        DvergrWorkersPlugin.Log.LogDebug(Role.Name + " ignoring '" + prefab + "' (not one of its machines)");
                     }
                     continue;
                 }

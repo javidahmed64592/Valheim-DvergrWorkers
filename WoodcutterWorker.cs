@@ -197,7 +197,7 @@ namespace DvergrWorkers
 
             if (ChooseTarget(out GameObject target, out TargetKind kind))
             {
-                if (Navigator.Begin(target.name, from => ReachPoint(target, kind, from)))
+                if (Navigator.Begin(target.name, from => ReachPoint(target, kind, from), rememberFailure: true))
                 {
                     _target = target;
                     _kind = kind;

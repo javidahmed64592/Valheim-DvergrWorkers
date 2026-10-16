@@ -5,8 +5,8 @@ using UnityEngine;
 namespace DvergrWorkers
 {
     /// <summary>
-    /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood
-    /// or coal from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
+    /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood,
+    /// coal, greydwarf eyes or guck from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
     /// as it can in one trip and returns what is left over to the input chest.
     /// </summary>
     public class RefuelerWorker : WorkerBrain
@@ -14,6 +14,9 @@ namespace DvergrWorkers
         private enum Phase { Plan, Fetch, Walk, Work, Return }
 
         private const float AddInterval = 0.35f;
+
+        /// <summary>Item prefab names of the fuels the refueler uses. Fires that burn anything else are left alone.</summary>
+        private static readonly string[] FuelPrefabs = { "Resin", "Coal", "Wood", "GreydwarfEye", "Guck" };
 
         private Phase _phase = Phase.Plan;
         private Fireplace _fire;
@@ -48,7 +51,7 @@ namespace DvergrWorkers
         /// <summary>The fuels the refueler is allowed to use.</summary>
         internal override bool WantsItem(string sharedName)
         {
-            foreach (string name in WorkerConfig.RefuelerFuels.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string name in FuelPrefabs)
             {
                 GameObject prefab = ObjectDB.instance.GetItemPrefab(name.Trim());
                 ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
@@ -96,8 +99,7 @@ namespace DvergrWorkers
         /// <summary>Fires the refueler looks after: player-built, refillable, using one of the configured fuels.</summary>
         private List<Fireplace> FindFires()
         {
-            var allowed = new HashSet<string>(
-                WorkerConfig.RefuelerFuels.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+            var allowed = new HashSet<string>(FuelPrefabs);
             var found = new List<Fireplace>();
             _fuelNames.Clear();
 
@@ -306,7 +308,7 @@ namespace DvergrWorkers
             }
 
             Fireplace fire = _fire;
-            if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(fire.m_nview.gameObject, from)))
+            if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(fire.m_nview.gameObject, from), rememberFailure: true))
             {
                 DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to " + PrefabOf(fire) + ", skipping");
                 _unreachable.Add(fire);

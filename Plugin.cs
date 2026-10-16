@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.5.0";
+        public const string PluginVersion = "0.5.1";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
@@ -60,12 +60,7 @@ namespace DvergrWorkers
         public static ConfigEntry<float> ThreatRadius;
         public static ConfigEntry<int> TreesPerRound;
         public static ConfigEntry<int> StumpsPerRound;
-        public static ConfigEntry<string> BlacksmithMachines;
-        public static ConfigEntry<string> BarleyMachines;
-        public static ConfigEntry<string> FlaxMachines;
-        public static ConfigEntry<string> EitrMachines;
         public static ConfigEntry<bool> TakeFromOutputChests;
-        public static ConfigEntry<string> RefuelerFuels;
         public static ConfigEntry<float> RefuelBelow;
         public static ConfigEntry<int> SeedReserve;
         public static ConfigEntry<int> PlantsPerTrip;
@@ -102,16 +97,6 @@ namespace DvergrWorkers
                 role.BindConfig(config);
             }
 
-            BlacksmithMachines = config.Bind(WorkerRoles.Blacksmith.Name, "Machines", "charcoal_kiln,smelter,blastfurnace",
-                "Comma-separated prefab names of the kilns, smelters and furnaces the blacksmith tends.");
-            BarleyMachines = config.Bind(WorkerRoles.Barley.Name, "Machines", "windmill",
-                "Comma-separated prefab names of the windmills the barley worker tends.");
-            FlaxMachines = config.Bind(WorkerRoles.Flax.Name, "Machines", "piece_spinningwheel",
-                "Comma-separated prefab names of the spinning wheels the flax worker tends.");
-            EitrMachines = config.Bind(WorkerRoles.Eitr.Name, "Machines", "eitrrefinery",
-                "Comma-separated prefab names of the eitr refineries the eitr worker tends.");
-            RefuelerFuels = config.Bind(WorkerRoles.Refueler.Name, "Fuels", "Resin,Wood,Coal",
-                "Comma-separated item prefab names the refueler may use. Fires that burn anything else are left alone.");
             RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
                 new ConfigDescription("A fire is topped up once its fuel falls to this fraction of its maximum.", new AcceptableValueRange<float>(0.1f, 1f)));
             SeedReserve = config.Bind(WorkerRoles.Farmer.Name, "SeedReserve", 4,

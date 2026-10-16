@@ -180,7 +180,7 @@ namespace DvergrWorkers
                     continue;
                 }
 
-                if (Navigator.Begin(candidate.name, from => WorkerNavigator.ClosestPointOnColliders(candidate.gameObject, from)))
+                if (Navigator.Begin(candidate.name, from => WorkerNavigator.ClosestPointOnColliders(candidate.gameObject, from), rememberFailure: true))
                 {
                     _current = candidate;
                     SetStatus("Walking to a damaged piece (" + (_queue.Count + 1) + " left)");

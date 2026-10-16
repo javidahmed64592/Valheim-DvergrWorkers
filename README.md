@@ -14,9 +14,9 @@ Dvergr workers help around your base and defend it when it is under attack:
 
 _Note: This mod is an early work in progress!_
 
-![Repair Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/repair.png)
-![Woodcutter Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/woodcutter.png)
-![Blacksmith Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/blacksmith.png)
+![Screenshot 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_1.png)
+![Screenshot 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_2.png)
+![Screenshot 3](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_3.png)
 
 ## How It Works
 
@@ -33,7 +33,7 @@ Each job loop:
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
 - **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
-- **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, wood, and coal from the input chest, returning any spare fuel afterwards.
+- **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, coal, wood, greydwarf eyes, and guck from the input chest, returning any spare fuel afterwards.
 - **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area.
   It never tills, so you decide where the farm is.
   It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low.

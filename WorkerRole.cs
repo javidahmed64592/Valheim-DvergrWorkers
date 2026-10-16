@@ -64,7 +64,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Repair = new WorkerRole
         {
             Name = "Repair",
-            BedDescription = "A bed for a Dvergr repairman. Once built, a Dvergr moves in and keeps the surrounding base in good repair.",
+            BedDescription = "A bed for a Dvergr repairman that fixes and maintains the base.",
             BrainType = typeof(RepairWorker),
             ToolPrefab = "Hammer",
             DefaultReach = 6f,
@@ -73,7 +73,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Woodcutter = new WorkerRole
         {
             Name = "Woodcutter",
-            BedDescription = "A bed for a Dvergr woodcutter. Once built, a Dvergr moves in, fells trees around the base and stores the wood in Worker Output Chests.",
+            BedDescription = "A bed for a Dvergr woodcutter that fells trees and stores the wood in chests.",
             BrainType = typeof(WoodcutterWorker),
             ToolPrefab = "AxeIron",
             Chests = ChestUse.Output,
@@ -88,7 +88,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Blacksmith = new WorkerRole
         {
             Name = "Blacksmith",
-            BedDescription = "A bed for a Dvergr blacksmith. Once built, a Dvergr moves in and keeps nearby charcoal kilns, smelters and blast furnaces fed from Worker Input Chests, delivering the coal and metal to Worker Output Chests.",
+            BedDescription = "A bed for a Dvergr blacksmith that tends to nearby charcoal kilns, smelters and blast furnaces.",
             BrainType = typeof(BlacksmithWorker),
             Chests = ChestUse.Both,
             Produces = new HashSet<string>
@@ -103,7 +103,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Refueler = new WorkerRole
         {
             Name = "Refueler",
-            BedDescription = "A bed for a Dvergr refueler. Once built, a Dvergr moves in and keeps nearby torches, fires and braziers burning with resin, wood and coal from a Worker Input Chest.",
+            BedDescription = "A bed for a Dvergr refueler that keeps nearby torches, fires and braziers burning.",
             BrainType = typeof(RefuelerWorker),
             ToolPrefab = "Lantern",
             Chests = ChestUse.Input,
@@ -114,7 +114,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Farmer = new WorkerRole
         {
             Name = "Farmer",
-            BedDescription = "A bed for a Dvergr farmer. Once built, a Dvergr moves in, harvests crops and plants every free spot of tilled soil nearby using seeds from a Worker Input Chest, delivering the crops to a Worker Output Chest.",
+            BedDescription = "A bed for a Dvergr farmer that plants and harvests crops.",
             BrainType = typeof(FarmerWorker),
             ToolPrefab = "Cultivator",
             Chests = ChestUse.Both,
@@ -131,7 +131,7 @@ namespace DvergrWorkers
         {
             Name = "TreeFarmer",
             DisplayName = "Tree Farmer",
-            BedDescription = "A bed for a Dvergr tree farmer. Once built, a Dvergr moves in and plants tree saplings on suitable ground nearby using tree seeds from a Worker Input Chest, keeping clear of buildings and farmland.",
+            BedDescription = "A bed for a Dvergr tree farmer that plants tree saplings.",
             BrainType = typeof(TreeFarmerWorker),
             ToolPrefab = "Cultivator",
             Chests = ChestUse.Input,
@@ -142,7 +142,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Barley = new WorkerRole
         {
             Name = "Barley",
-            BedDescription = "A bed for a Dvergr miller. Once built, a Dvergr moves in and keeps nearby windmills fed with barley from a Worker Input Chest, delivering the flour to a Worker Output Chest.",
+            BedDescription = "A bed for a Dvergr miller that keeps nearby windmills fed with barley and delivers the flour.",
             BrainType = typeof(BarleyWorker),
             Chests = ChestUse.Both,
             Produces = new HashSet<string> { "$item_barleyflour" },
@@ -153,7 +153,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Flax = new WorkerRole
         {
             Name = "Flax",
-            BedDescription = "A bed for a Dvergr spinner. Once built, a Dvergr moves in and keeps nearby spinning wheels fed with flax from a Worker Input Chest, delivering the linen thread to a Worker Output Chest.",
+            BedDescription = "A bed for a Dvergr spinner that keeps nearby spinning wheels fed with flax and delivers the linen thread.",
             BrainType = typeof(FlaxWorker),
             Chests = ChestUse.Both,
             Produces = new HashSet<string> { "$item_linenthread" },
@@ -164,7 +164,7 @@ namespace DvergrWorkers
         public static readonly WorkerRole Eitr = new WorkerRole
         {
             Name = "Eitr",
-            BedDescription = "A bed for a Dvergr eitr refiner. Once built, a Dvergr moves in and keeps nearby eitr refineries fed with sap and soft tissue from a Worker Input Chest, delivering the eitr to a Worker Output Chest.",
+            BedDescription = "A bed for a Dvergr eitr refiner that keeps nearby eitr refineries fed with sap and soft tissue and delivers the eitr.",
             BrainType = typeof(EitrWorker),
             Chests = ChestUse.Both,
             Produces = new HashSet<string> { "$item_eitr" },
