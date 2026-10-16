@@ -14,9 +14,9 @@ Dvergr workers help around your base and defend it when it is under attack:
 
 _Note: This mod is an early work in progress!_
 
-![Repair Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/repair.png)
-![Woodcutter Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/woodcutter.png)
-![Blacksmith Worker](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/blacksmith.png)
+![Screenshot 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_1.png)
+![Screenshot 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_2.png)
+![Screenshot 3](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_3.png)
 
 ## How It Works
 
