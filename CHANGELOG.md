@@ -4,6 +4,7 @@
 
 - Workers no longer keep walking up to places they cannot reach. The farmer and tree farmer check that a planting spot can be walked to (so nothing is planted behind a wall or fence), and all workers remember targets they gave up on for a few minutes. The game builds its navigation mesh a few seconds after a place is first checked, so a spot that fails once is checked again before it is written off, and the farmers look again within seconds.
 - Updated bed descriptions.
+- Removed the `Machines` and `Fuels` settings: workers now always tend the vanilla machines and use the vanilla fuels.
 
 ## 0.5.0
 

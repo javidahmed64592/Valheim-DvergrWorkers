@@ -15,6 +15,9 @@ namespace DvergrWorkers
 
         private const float AddInterval = 0.35f;
 
+        /// <summary>Item prefab names of the fuels the refueler uses. Fires that burn anything else are left alone.</summary>
+        private static readonly string[] FuelPrefabs = { "Resin", "Wood", "Coal" };
+
         private Phase _phase = Phase.Plan;
         private Fireplace _fire;
         private string _fuelShared;
@@ -48,7 +51,7 @@ namespace DvergrWorkers
         /// <summary>The fuels the refueler is allowed to use.</summary>
         internal override bool WantsItem(string sharedName)
         {
-            foreach (string name in WorkerConfig.RefuelerFuels.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string name in FuelPrefabs)
             {
                 GameObject prefab = ObjectDB.instance.GetItemPrefab(name.Trim());
                 ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
@@ -96,8 +99,7 @@ namespace DvergrWorkers
         /// <summary>Fires the refueler looks after: player-built, refillable, using one of the configured fuels.</summary>
         private List<Fireplace> FindFires()
         {
-            var allowed = new HashSet<string>(
-                WorkerConfig.RefuelerFuels.Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+            var allowed = new HashSet<string>(FuelPrefabs);
             var found = new List<Fireplace>();
             _fuelNames.Clear();
 
