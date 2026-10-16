@@ -5,8 +5,8 @@ using UnityEngine;
 namespace DvergrWorkers
 {
     /// <summary>
-    /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood
-    /// or coal from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
+    /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood,
+    /// coal, greydwarf eyes or guck from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
     /// as it can in one trip and returns what is left over to the input chest.
     /// </summary>
     public class RefuelerWorker : WorkerBrain
@@ -16,7 +16,7 @@ namespace DvergrWorkers
         private const float AddInterval = 0.35f;
 
         /// <summary>Item prefab names of the fuels the refueler uses. Fires that burn anything else are left alone.</summary>
-        private static readonly string[] FuelPrefabs = { "Resin", "Wood", "Coal" };
+        private static readonly string[] FuelPrefabs = { "Resin", "Coal", "Wood", "GreydwarfEye", "Guck" };
 
         private Phase _phase = Phase.Plan;
         private Fireplace _fire;
