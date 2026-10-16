@@ -306,7 +306,7 @@ namespace DvergrWorkers
             }
 
             Fireplace fire = _fire;
-            if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(fire.m_nview.gameObject, from)))
+            if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(fire.m_nview.gameObject, from), rememberFailure: true))
             {
                 DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to " + PrefabOf(fire) + ", skipping");
                 _unreachable.Add(fire);

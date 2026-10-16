@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- Workers no longer keep walking up to places they cannot reach. The farmer and tree farmer check that a planting spot can be walked to (so nothing is planted behind a wall or fence), and all workers remember targets they gave up on for a few minutes.
+
 ## 0.5.0
 
 - Added the **Barley Bed**: its Dvergr feeds windmills with barley from the input chest, collects the flour, and delivers it to output chests.

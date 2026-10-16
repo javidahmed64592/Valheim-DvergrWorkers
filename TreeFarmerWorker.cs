@@ -16,6 +16,9 @@ namespace DvergrWorkers
         private enum Phase { Plan, Fetch, Walk, Plant, Return }
 
         private const float PlantTime = 0.6f;
+
+        /// <summary>Most path checks made while choosing spots, so one planning pass cannot stall the game.</summary>
+        private const int MaxReachChecks = 30;
         private const float GridStep = 2f;
         private const float TreeSpacingMargin = 1f;
         private const float DefaultTreeRoom = 2f;
@@ -238,6 +241,7 @@ namespace DvergrWorkers
 
             // Chosen spots must not crowd each other either, since they are planted one after another.
             var chosen = new List<Vector3>();
+            int checks = 0;
             foreach (Vector3 spot in spots)
             {
                 bool crowded = false;
@@ -245,13 +249,27 @@ namespace DvergrWorkers
                 {
                     crowded |= Utils.DistanceXZ(other, spot) < room * 2f + TreeSpacingMargin;
                 }
-                if (!crowded)
+                if (crowded || UnreachableSpots.IsKnown(spot))
                 {
-                    chosen.Add(spot);
-                    if (chosen.Count >= max)
-                    {
-                        break;
-                    }
+                    continue;
+                }
+
+                // Ground outside a fence or wall is no use: check the worker can walk there.
+                if (checks++ >= MaxReachChecks)
+                {
+                    break;
+                }
+                Vector3 target = spot;
+                if (!Navigator.CanReach(from => target))
+                {
+                    UnreachableSpots.Add(spot);
+                    continue;
+                }
+
+                chosen.Add(spot);
+                if (chosen.Count >= max)
+                {
+                    break;
                 }
             }
             return chosen;
@@ -492,7 +510,7 @@ namespace DvergrWorkers
 
         private bool BeginWalk(Vector3 spot)
         {
-            if (!Navigator.Begin("planting spot", from => spot))
+            if (!Navigator.Begin("planting spot", from => spot, rememberFailure: true))
             {
                 DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to a planting spot, skipping");
                 _batchSpots.RemoveAt(0);
@@ -518,7 +536,10 @@ namespace DvergrWorkers
                 case NavResult.Failed:
                     if (_batchSpots.Count > 0)
                     {
-                        _batchSpots.RemoveAt(0);
+                        // Its neighbours are most likely cut off in the same way.
+                        Vector3 failed = _batchSpots[0];
+                        UnreachableSpots.Add(failed);
+                        _batchSpots.RemoveAll(s => Utils.DistanceXZ(s, failed) < 4f);
                     }
                     _phase = Phase.Plan;
                     break;

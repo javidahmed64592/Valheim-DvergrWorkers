@@ -16,6 +16,9 @@ namespace DvergrWorkers
         private enum Phase { Plan, Fetch, Walk, Plant, Harvest, Collect, Deposit }
 
         private const float PlantTime = 0.6f;
+
+        /// <summary>Most path checks made while choosing spots, so one planning pass cannot stall the game.</summary>
+        private const int MaxReachChecks = 30;
         private const float HarvestWait = 0.9f;
         private const float CollectInterval = 0.3f;
         private const int MaxCollectTries = 12;
@@ -268,6 +271,7 @@ namespace DvergrWorkers
 
             // Keep chosen spots from crowding each other: they are planted one after another.
             var chosen = new List<Vector3>();
+            int checks = 0;
             foreach (Vector3 spot in spots)
             {
                 bool crowded = false;
@@ -275,13 +279,27 @@ namespace DvergrWorkers
                 {
                     crowded |= Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + PlantCatalogue.SpacingMargin;
                 }
-                if (!crowded)
+                if (crowded || UnreachableSpots.IsKnown(spot))
                 {
-                    chosen.Add(spot);
-                    if (chosen.Count >= max)
-                    {
-                        break;
-                    }
+                    continue;
+                }
+
+                // Tilled soil on the other side of a wall is no use: check the worker can walk there.
+                if (checks++ >= MaxReachChecks)
+                {
+                    break;
+                }
+                Vector3 target = spot;
+                if (!Navigator.CanReach(from => target))
+                {
+                    UnreachableSpots.Add(spot);
+                    continue;
+                }
+
+                chosen.Add(spot);
+                if (chosen.Count >= max)
+                {
+                    break;
                 }
             }
             return chosen;
@@ -462,7 +480,7 @@ namespace DvergrWorkers
             {
                 _harvest = ripe;
                 Pickable target = ripe;
-                if (Navigator.Begin(ripe.name, from => WorkerNavigator.ClosestPointOnColliders(target.gameObject, from)))
+                if (Navigator.Begin(ripe.name, from => WorkerNavigator.ClosestPointOnColliders(target.gameObject, from), rememberFailure: true))
                 {
                     _phase = Phase.Walk;
                     _nextAfterWalk = Phase.Harvest;
@@ -589,7 +607,7 @@ namespace DvergrWorkers
 
         private bool BeginWalk(Vector3 spot, string status, Phase next)
         {
-            if (!Navigator.Begin("spot", from => spot))
+            if (!Navigator.Begin("spot", from => spot, rememberFailure: true))
             {
                 DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to a planting spot, skipping");
                 if (_batchSpots.Count > 0)
@@ -631,7 +649,10 @@ namespace DvergrWorkers
                     }
                     else if (_batchSpots.Count > 0)
                     {
-                        _batchSpots.RemoveAt(0);
+                        // Its neighbours are most likely cut off in the same way.
+                        Vector3 failed = _batchSpots[0];
+                        UnreachableSpots.Add(failed);
+                        _batchSpots.RemoveAll(s => Utils.DistanceXZ(s, failed) < 4f);
                     }
                     _phase = Phase.Plan;
                     break;
