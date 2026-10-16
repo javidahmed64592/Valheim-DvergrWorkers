@@ -33,6 +33,7 @@ namespace DvergrWorkers
         private int _plantedLastRound;
         private bool _noSupply;
         private bool _noSpots;
+        private int _pendingChecks;
         private bool _full;
         private readonly HashSet<PlantType> _failedTypes = new HashSet<PlantType>();
         private readonly HashSet<PlantType> _loggedBiome = new HashSet<PlantType>();
@@ -254,7 +255,13 @@ namespace DvergrWorkers
                     continue;
                 }
 
-                // Ground outside a fence or wall is no use: check the worker can walk there.
+                // Ground behind a wall or fence is no use: check the worker can walk there. The first failure
+                // may only mean the game has not built the navigation mesh there yet, so look again later.
+                if (UnreachableSpots.IsPending(spot))
+                {
+                    _pendingChecks++;
+                    continue;
+                }
                 if (checks++ >= MaxReachChecks)
                 {
                     break;
@@ -262,7 +269,8 @@ namespace DvergrWorkers
                 Vector3 target = spot;
                 if (!Navigator.CanReach(from => target))
                 {
-                    UnreachableSpots.Add(spot);
+                    UnreachableSpots.Suspect(spot);
+                    _pendingChecks++;
                     continue;
                 }
 
@@ -313,6 +321,7 @@ namespace DvergrWorkers
             _planted = 0;
             _noSupply = false;
             _noSpots = false;
+            _pendingChecks = 0;
             _full = false;
             _failedTypes.Clear();
             _loggedBiome.Clear();
@@ -330,6 +339,11 @@ namespace DvergrWorkers
             if (!AnythingToPlant())
             {
                 _plantedLastRound = 0;
+                if (_pendingChecks > 0)
+                {
+                    // The game is still building the navigation mesh around some spots; look again shortly.
+                    RetrySoon(15f);
+                }
                 IdleNote = NothingToDoNote();
                 return false;
             }

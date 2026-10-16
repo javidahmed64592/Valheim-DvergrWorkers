@@ -29,6 +29,7 @@ namespace DvergrWorkers
         protected const float TaskRadiusTolerance = 3f;
 
         private float _nextRound;
+        private float _retrySoon;
         private float _threatTimer;
         private float _bedCheckTimer;
         private int _bedMissingChecks;
@@ -47,6 +48,12 @@ namespace DvergrWorkers
         internal WorkerNavigator Navigator { get; private set; }
         internal WorkerLogistics Logistics { get; private set; }
         internal WorkerAnimation Animation { get; private set; }
+
+        /// <summary>Asks for the next round to start after this many seconds instead of the usual interval (only once).</summary>
+        protected void RetrySoon(float seconds)
+        {
+            _retrySoon = seconds;
+        }
 
         /// <summary>Optional reason shown on the bed instead of "Idle", e.g. "Waiting for items in the input chest".</summary>
         protected string IdleNote { get; set; }
@@ -241,7 +248,8 @@ namespace DvergrWorkers
                     return RunTask(dt);
                 }
                 InRound = false;
-                _nextRound = Time.time + Role.Interval.Value;
+                _nextRound = Time.time + (_retrySoon > 0f ? _retrySoon : Role.Interval.Value);
+                _retrySoon = 0f;
                 return false;
             }
 
