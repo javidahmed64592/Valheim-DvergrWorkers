@@ -14,7 +14,7 @@ namespace DvergrWorkers
     {
         public const string PluginGUID = "javidahmed64592.dvergrworkers";
         public const string PluginName = "Dvergr Workers";
-        public const string PluginVersion = "0.6.0";
+        public const string PluginVersion = "0.5.1";
 
         internal static BepInEx.Logging.ManualLogSource Log;
 
