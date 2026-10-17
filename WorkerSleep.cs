@@ -34,6 +34,8 @@ namespace DvergrWorkers
         private float _walkTime;
         private bool _modelLying;
         private bool _holding;
+        private readonly Humanoid _humanoid;
+        private readonly List<ItemDrop.ItemData> _putAway = new List<ItemDrop.ItemData>();
         private Vector3 _holdPosition;
         private Quaternion _holdRotation;
 
@@ -42,6 +44,7 @@ namespace DvergrWorkers
             _nview = nview;
             _character = character;
             _ai = ai;
+            _humanoid = character as Humanoid;
             _body = character.GetComponent<Rigidbody>();
             _collider = character.GetComponent<Collider>();
             Animator animator = character.GetComponentInChildren<Animator>();
@@ -112,6 +115,7 @@ namespace DvergrWorkers
 
             _ai.StopMoving();
             _nview.GetZDO().Set(AsleepKey, true);
+            PutWeaponsAway();
             foreach (Collider bedCollider in bed.GetComponentsInChildren<Collider>())
             {
                 if (_collider != null)
@@ -140,6 +144,7 @@ namespace DvergrWorkers
 
             _nview.GetZDO().Set(AsleepKey, false);
             _holding = false;
+            TakeWeaponsBack();
             ReleaseColliders();
             if (_body != null)
             {
@@ -151,6 +156,51 @@ namespace DvergrWorkers
                 side = side.sqrMagnitude > 0.01f ? side.normalized : _character.transform.right;
                 _character.transform.position += side * WakeStepOut + Vector3.up * 0.3f;
             }
+        }
+
+        /// <summary>Unequips anything weapon-like (including the crossbow in the utility slot) while the worker lies down.</summary>
+        private void PutWeaponsAway()
+        {
+            if (_humanoid == null)
+            {
+                return;
+            }
+
+            _putAway.Clear();
+            foreach (ItemDrop.ItemData item in new[] { _humanoid.m_rightItem, _humanoid.m_leftItem, _humanoid.m_utilityItem })
+            {
+                if (item != null && (item.IsWeapon() || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow")))
+                {
+                    _putAway.Add(item);
+                }
+            }
+            foreach (ItemDrop.ItemData item in _putAway)
+            {
+                _humanoid.UnequipItem(item, false);
+            }
+        }
+
+        private void TakeWeaponsBack()
+        {
+            if (_humanoid == null)
+            {
+                return;
+            }
+
+            foreach (ItemDrop.ItemData item in _putAway)
+            {
+                if (!_humanoid.GetInventory().ContainsItem(item))
+                {
+                    continue;
+                }
+                // Equipping refuses worn-out items; the worker's gear never degrades.
+                if (item.m_shared.m_useDurability && item.m_durability <= 0f)
+                {
+                    item.m_durability = item.GetMaxDurability();
+                }
+                _humanoid.EquipItem(item, false);
+            }
+            _putAway.Clear();
         }
 
         private void ReleaseColliders()
