@@ -1,10 +1,9 @@
 The goal is to add worker NPCs to the game to help maintain player base, defend against attacks, and make the game feel a bit more alive.
 
-The decompiled game is in this workspace `/home/javid/SecondarySSD/Programming/GitHub/valheim-decompiled`.
-
 ## Core Design
 
 - The workers will be Dvergr NPCs.
+- The workers should use a random Dvergr model to add variety.
 - Dvergers in game are passive and friendly towards players unless if attacked in the vanilla game. In the mod, they should be invincible towards player attacks, and they should maintain their defensive behaviour when attacked by other enemies.
 - Alongside their vanilla behaviour, they should also complete various tasks around the base (outlined below).
 - They should be spawned in by building dedicated beds for them.
@@ -48,6 +47,17 @@ The decompiled game is in this workspace `/home/javid/SecondarySSD/Programming/G
 - Workers should be able to handle multiple input and output chests if necessary, distributing their resources accordingly.
 - Workers should prioritise using the closest available chest to minimise travel time and improve efficiency.
 
+## Socialising
+
+- Workers should feel social through interactions with each other and with players.
+- They should have a chat system to say voice lines which indicate their status.
+- If they are working, they should say something relevant to their job.
+  - They should comment on what they're doing, indicate progress, resource availability, or any issues encountered.
+- If they are idle, they should engage in social interactions with other workers or the player, providing a sense of life and activity within the base.
+  - Dvergrs are native to the Mistlands, so if players spawn them in other biomes, they could comment on the unfamiliar surroundings.
+  - They could also make other biome-based comments such as commenting on how it's cold or hot, or the mobs native to that biome.
+  - They could also comment on the presence of other players or workers nearby, acknowledging their actions or simply greeting them.
+
 ## General Behaviour
 
 - Workers should perform their tasks periodically. This time period should be configurable per worker role.
@@ -55,4 +65,4 @@ The decompiled game is in this workspace `/home/javid/SecondarySSD/Programming/G
 - The worker should then perform the task and behave like a player in terms of walking and interacting with resources.
 - The worker should also hold any necessary tools or items required for the task they are performing.
 - Once the task is completed, the worker should return to an idle state and wait for the next task period.
-- This idle state should reflect "socialising" and also "resting" (such as sleeping at night). In fact, workers should not complete tasks during night.
+- Workers should not perform tasks during the night and should return to their beds to sleep.
