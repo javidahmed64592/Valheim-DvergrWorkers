@@ -61,7 +61,8 @@ Currently, the workers share input and output chests within their job radius.
 This may be changed in the future to allow for more complex chest management or individual chest assignments.
 
 When a worker deposits an item, it first looks for a chest that already holds that item, even if it is further away.
-If no chest does, it uses the nearest one.
+If no chest does, it starts a new category in an empty chest, and only then uses the nearest chest with room.
+Workers deposit one kind of item at a time, so different items do not get mixed together.
 This keeps your chests organised.
 
 Workers that need chests will not begin their jobs until they are built within the job radius.
