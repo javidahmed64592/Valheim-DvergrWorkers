@@ -2,7 +2,7 @@
 
 ## 0.5.2
 
-- Workers now deposit into a chest that already holds the same item where there is one, and only fall back to the nearest chest when no chest does, so chests stay better organised.
+- Workers now look for chests which contain the item they are depositing, and fall back to the nearest chest only if no such chest is found. This helps keep chests better organised.
 
 ## 0.5.1
 
