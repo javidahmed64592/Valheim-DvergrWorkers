@@ -30,6 +30,9 @@ namespace DvergrWorkers
         private WorkerChest _chest;
         private Func<ItemDrop.ItemData, bool> _filter;
         private bool _fetching;
+
+        /// <summary>For a deposit, the kinds of item (by shared name) that go into the chosen chest; others stay for the next trip.</summary>
+        private HashSet<string> _onlyNames;
         private int _limit;
 
         /// <summary>Why the last Begin* returned false or a trip failed.</summary>
@@ -183,6 +186,7 @@ namespace DvergrWorkers
         {
             _filter = filter;
             _fetching = fetching;
+            _onlyNames = null;
             Transferred = 0;
 
             List<WorkerChest> chests = WorkerChest.Find(kind, _home(), _radius(), _transform.position);
@@ -192,35 +196,149 @@ namespace DvergrWorkers
                 return false;
             }
 
-            Inventory from = fetching ? null : Carried;
-            foreach (WorkerChest chest in chests)
+            if (fetching)
             {
-                if (chest.Container.IsInUse() || !HasSomethingToMove(chest, from))
+                foreach (WorkerChest chest in chests)
                 {
-                    continue;
+                    if (!chest.Container.IsInUse() && HasSomethingToMove(chest, null, null) && TryGoTo(chest, null))
+                    {
+                        return true;
+                    }
                 }
-
-                WorkerChest target = chest;
-                if (_navigator.Begin(chest.name, p => WorkerNavigator.ClosestPointOnColliders(target.gameObject, p)))
-                {
-                    _chest = chest;
-                    return true;
-                }
+            }
+            else if (BeginDeposit(chests))
+            {
+                return true;
             }
 
             Reason = noneReason;
             return false;
         }
 
-        /// <summary>Whether a trip to this chest would move anything, given what is carried and what room there is.</summary>
-        private bool HasSomethingToMove(WorkerChest chest, Inventory carried)
+        /// <summary>
+        /// Plans one deposit trip, one kind of item at a time, so chests stay organised. For each kind carried, the
+        /// worker looks for a chest that already holds it (even if it is further away), then for an empty chest to
+        /// start a new category in, and only then for the nearest chest with room.
+        /// </summary>
+        private bool BeginDeposit(List<WorkerChest> nearestFirst)
+        {
+            // Largest stacks first, so the bulkiest cargo is dealt with first.
+            var counts = new Dictionary<string, int>();
+            foreach (ItemDrop.ItemData item in Carried.GetAllItems())
+            {
+                if (_filter(item))
+                {
+                    counts[item.m_shared.m_name] = (counts.TryGetValue(item.m_shared.m_name, out int n) ? n : 0) + item.m_stack;
+                }
+            }
+            var kinds = new List<string>(counts.Keys);
+            kinds.Sort((x, y) => counts[y].CompareTo(counts[x]));
+
+            foreach (string kind in kinds)
+            {
+                var holding = new List<WorkerChest>();
+                var empty = new List<WorkerChest>();
+                var others = new List<WorkerChest>();
+                foreach (WorkerChest chest in nearestFirst)
+                {
+                    Inventory inventory = chest.Container.GetInventory();
+                    if (HoldsKind(inventory, kind))
+                    {
+                        holding.Add(chest);
+                    }
+                    else if (inventory.NrOfItems() == 0)
+                    {
+                        empty.Add(chest);
+                    }
+                    else
+                    {
+                        others.Add(chest);
+                    }
+                }
+
+                foreach (WorkerChest chest in holding)
+                {
+                    // A chest that already holds this also takes any other carried item it already holds.
+                    HashSet<string> names = SharedWithCarried(chest);
+                    names.Add(kind);
+                    if (!chest.Container.IsInUse() && HasSomethingToMove(chest, Carried, names) && TryGoTo(chest, names))
+                    {
+                        return true;
+                    }
+                }
+
+                foreach (List<WorkerChest> fallback in new[] { empty, others })
+                {
+                    foreach (WorkerChest chest in fallback)
+                    {
+                        var names = new HashSet<string> { kind };
+                        if (!chest.Container.IsInUse() && HasSomethingToMove(chest, Carried, names) && TryGoTo(chest, names))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        private bool TryGoTo(WorkerChest chest, HashSet<string> onlyNames)
+        {
+            WorkerChest target = chest;
+            if (!_navigator.Begin(chest.name, p => WorkerNavigator.ClosestPointOnColliders(target.gameObject, p)))
+            {
+                return false;
+            }
+
+            _chest = chest;
+            _onlyNames = onlyNames;
+            return true;
+        }
+
+        private static bool HoldsKind(Inventory inventory, string sharedName)
+        {
+            foreach (ItemDrop.ItemData item in inventory.GetAllItems())
+            {
+                if (item.m_shared.m_name == sharedName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The names of the items being deposited that this chest already holds.</summary>
+        private HashSet<string> SharedWithCarried(WorkerChest chest)
+        {
+            var carriedNames = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in Carried.GetAllItems())
+            {
+                if (_filter(item))
+                {
+                    carriedNames.Add(item.m_shared.m_name);
+                }
+            }
+
+            var shared = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in chest.Container.GetInventory().GetAllItems())
+            {
+                if (carriedNames.Contains(item.m_shared.m_name))
+                {
+                    shared.Add(item.m_shared.m_name);
+                }
+            }
+            return shared;
+        }
+
+        /// <summary>Whether a trip to this chest would move anything (only of the given kinds, if set), given the room there is.</summary>
+        private bool HasSomethingToMove(WorkerChest chest, Inventory carried, HashSet<string> onlyNames)
         {
             Inventory chestInv = chest.Container.GetInventory();
             Inventory source = _fetching ? chestInv : carried;
             Inventory dest = _fetching ? Carried : chestInv;
             foreach (ItemDrop.ItemData item in source.GetAllItems())
             {
-                if (_filter(item) && Capacity(dest, item) > 0)
+                if (_filter(item) && (onlyNames == null || onlyNames.Contains(item.m_shared.m_name)) && Capacity(dest, item) > 0)
                 {
                     return true;
                 }
@@ -238,11 +356,12 @@ namespace DvergrWorkers
             Inventory source = _fetching ? chestInv : Carried;
             Inventory dest = _fetching ? Carried : chestInv;
 
+            HashSet<string> only = _fetching ? null : _onlyNames;
             int moved = 0;
             int remaining = _limit;
             foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(source.GetAllItems()))
             {
-                if (!_filter(item))
+                if (!_filter(item) || (only != null && !only.Contains(item.m_shared.m_name)))
                 {
                     continue;
                 }
