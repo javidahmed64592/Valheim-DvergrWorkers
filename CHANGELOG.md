@@ -5,8 +5,8 @@
 - Workers now go to bed at night: when it is time to rest, the Dvergr walks to its bed, lies down on it and stays there until morning. The bed shows "Sleeping" while it does.
 - Workers put their weapons away when they get into bed and take them back when they wake up.
 - A sleeping worker still gets up to defend itself if an enemy comes near or it is hurt, and returns to bed afterwards.
-- The woodcutter now also picks up the resin and feathers that fall out of trees and delivers them to output chests.
 - Workers get into bed from whichever side is closest. One that cannot get within reach of its bed retries once a minute, up to 5 times, then rests where it is for the night.
+- The woodcutter now also picks up the resin and feathers that fall out of trees and delivers them to output chests.
 
 ## 0.5.2
 
