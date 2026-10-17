@@ -2,7 +2,7 @@
 
 ## 0.5.2
 
-- Workers now look for chests which contain the item they are depositing, and fall back to the nearest chest only if no such chest is found. This helps keep chests better organised.
+- Workers now look for chests which contain the item they are depositing, then for an empty chest to start a new category in, and fall back to the nearest chest only if neither is found. They deposit one kind of item at a time so different items are not mixed together. This helps keep chests better organised.
 
 ## 0.5.1
 
