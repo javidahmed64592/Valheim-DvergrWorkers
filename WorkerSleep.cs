@@ -166,7 +166,6 @@ namespace DvergrWorkers
                 return;
             }
 
-            _putAway.Clear();
             foreach (ItemDrop.ItemData item in new[] { _humanoid.m_rightItem, _humanoid.m_leftItem, _humanoid.m_utilityItem })
             {
                 if (item != null && (item.IsWeapon() || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow")))
@@ -222,6 +221,13 @@ namespace DvergrWorkers
             _holdRotation = Quaternion.LookRotation(axis, Vector3.up);
             _holding = true;
             Pin();
+
+            // A worker that was unloaded while asleep is given its default gear again when it loads back in,
+            // so anything it is holding now is put away again.
+            if (_putAway.Count == 0)
+            {
+                PutWeaponsAway();
+            }
             _character.SetLookDir(axis);
             if (_body != null)
             {
