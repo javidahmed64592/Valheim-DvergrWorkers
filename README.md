@@ -12,11 +12,23 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Flax Worker** - feeds spinning wheels with flax and collects the linen thread.
 - **Eitr Worker** - feeds eitr refineries with sap and soft tissue and collects the eitr.
 
-_Note: This mod is an early work in progress!_
+## Workers in Action
 
-![Screenshot 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_1.png)
-![Screenshot 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_2.png)
-![Screenshot 3](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/screenshot_3.png)
+To test the productivity and coordination of the workers, I set up a small base in the Plains with various structures and chests for each type of worker.
+
+![Base 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_1.png)
+![Base 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_2.png)
+
+I gave them a handful of seeds and plantable crops, along with some copper ore.
+I then sat back and watched as the workers went about their tasks.
+
+![Input Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_input_1.png)
+
+After a few rounds of work, the workers had become fully self sufficient.
+The initial progress was slow, but as they gathered more resources and completed more tasks, they became more efficient and filled their chests whilst sustaining their own job needs.
+
+![Output Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_output_1.png)
+![Output Chest 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_output_2.png)
 
 ## How It Works
 
