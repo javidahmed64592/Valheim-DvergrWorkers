@@ -87,6 +87,35 @@ namespace DvergrWorkers
         }
 
         /// <summary>
+        /// The spot on the bed's edge closest to a point, nudged slightly outward: where someone standing at
+        /// <paramref name="from"/> would walk to in order to get into the bed. Returns the horizontal distance
+        /// from <paramref name="from"/> to the bed's edge.
+        /// </summary>
+        internal float NearestEdge(Vector3 from, out Vector3 edge)
+        {
+            if (!TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength))
+            {
+                edge = transform.position;
+                return Utils.DistanceXZ(from, edge);
+            }
+
+            Vector3 side = Vector3.Cross(Vector3.up, axis);
+            float halfWidth = _halfWidth;
+            Vector3 offset = Vector3.ProjectOnPlane(from - centre, Vector3.up);
+            float along = Mathf.Clamp(Vector3.Dot(offset, axis), -halfLength, halfLength);
+            float across = Mathf.Clamp(Vector3.Dot(offset, side), -halfWidth, halfWidth);
+            Vector3 nearest = centre + axis * along + side * across;
+            nearest.y = from.y;
+
+            Vector3 outward = Vector3.ProjectOnPlane(from - nearest, Vector3.up);
+            float distance = outward.magnitude;
+            edge = distance > 0.01f ? nearest + outward / distance * 0.4f : nearest;
+            return distance;
+        }
+
+        private float _halfWidth = 0.5f;
+
+        /// <summary>
         /// Where a worker lies down: the middle of the mattress's top surface, and the direction along the bed
         /// (the way the bed's length runs, which is the longer horizontal side of its model).
         /// </summary>
@@ -129,7 +158,9 @@ namespace DvergrWorkers
             centre = transform.TransformPoint(top);
             axis = transform.TransformDirection(local.size.x > local.size.z ? Vector3.right : Vector3.forward);
             axis = Vector3.ProjectOnPlane(axis, Vector3.up).normalized;
-            halfLength = Mathf.Max(local.size.x, local.size.z) * 0.5f * Mathf.Abs(transform.lossyScale.x);
+            float scale = Mathf.Abs(transform.lossyScale.x);
+            halfLength = Mathf.Max(local.size.x, local.size.z) * 0.5f * scale;
+            _halfWidth = Mathf.Min(local.size.x, local.size.z) * 0.5f * scale;
             return true;
         }
 

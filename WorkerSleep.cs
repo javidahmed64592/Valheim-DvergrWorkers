@@ -12,8 +12,10 @@ namespace DvergrWorkers
     {
         public const string AsleepKey = "DW_Asleep";
 
-        private const float ArriveDistance = 1.2f;
-        private const float GiveUpAfter = 60f;
+        private const float ArriveDistance = 1.5f;
+        private const float WalkTimePerAttempt = 30f;
+        private const float RetryDelay = 60f;
+        private const int MaxRetries = 5;
         private const float WakeStepOut = 1.4f;
         private static readonly Quaternion LyingTilt = Quaternion.Euler(-90f, 0f, 0f);
 
@@ -27,6 +29,8 @@ namespace DvergrWorkers
 
         private readonly List<Collider> _ignored = new List<Collider>();
         private bool _gaveUp;
+        private int _failedAttempts;
+        private float _retryAt;
         private float _walkTime;
         private bool _modelLying;
         private bool _holding;
@@ -75,25 +79,34 @@ namespace DvergrWorkers
                 return true;
             }
 
-            if (_gaveUp)
+            if (_gaveUp || Time.time < _retryAt)
             {
                 return false;
             }
 
+            // Like a player, walk to whichever side of the bed is nearest and get in from there.
             status = "Heading to bed";
             _walkTime += dt;
-            if (_walkTime > GiveUpAfter)
+            if (_walkTime > WalkTimePerAttempt)
             {
-                _gaveUp = true;
-                DvergrWorkersPlugin.Log.LogWarning("Dvergr could not reach its bed; resting where it is tonight");
+                _walkTime = 0f;
+                if (++_failedAttempts > MaxRetries)
+                {
+                    _gaveUp = true;
+                    DvergrWorkersPlugin.Log.LogWarning("Dvergr could not reach its bed; resting where it is tonight");
+                }
+                else
+                {
+                    _retryAt = Time.time + RetryDelay;
+                }
+                _ai.StopMoving();
                 return false;
             }
 
-            // Beds can stand side by side, so walk to the open foot end rather than the middle or the sides.
-            Vector3 approach = centre + axis * (halfLength + 0.8f);
-            if (Utils.DistanceXZ(_character.transform.position, approach) > ArriveDistance)
+            float distance = bed.NearestEdge(_character.transform.position, out Vector3 edge);
+            if (distance > ArriveDistance)
             {
-                _ai.MoveTo(dt, approach, ArriveDistance * 0.5f, false);
+                _ai.MoveTo(dt, edge, 0.3f, false);
                 return true;
             }
 
@@ -116,6 +129,8 @@ namespace DvergrWorkers
         {
             _walkTime = 0f;
             _gaveUp = false;
+            _failedAttempts = 0;
+            _retryAt = 0f;
 
             if (!IsAsleep)
             {
