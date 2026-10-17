@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Workers now go to bed at night: when it is time to rest, the Dvergr walks to its bed, lies down on it and stays there until morning. The bed shows "Sleeping" while it does.
+- A sleeping worker still gets up to defend itself if an enemy comes near or it is hurt, and returns to bed afterwards.
+- A worker that cannot reach its bed within a minute gives up and rests where it is.
+
 ## 0.5.2
 
 - Workers now look for chests which contain the item they are depositing, then for an empty chest to start a new category in, and fall back to the nearest chest only if neither is found. They deposit one kind of item at a time so different items are not mixed together. This helps keep chests better organised.

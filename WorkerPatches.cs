@@ -39,7 +39,7 @@ namespace DvergrWorkers
         // round is running only the speech queue is kept going.
         private static bool Prefix(NpcTalk __instance)
         {
-            if (WorkerBrain.TryGet(__instance.gameObject, out WorkerBrain worker) && worker.IsWorking)
+            if (WorkerBrain.TryGet(__instance.gameObject, out WorkerBrain worker) && (worker.IsWorking || worker.IsAsleep))
             {
                 __instance.UpdateSayQueue();
                 return false;

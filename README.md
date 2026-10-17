@@ -24,7 +24,7 @@ Dvergr workers each have a job to do around the base.
 They have designated beds that serve as their spawning point and their work area.
 They use chests for storing resources and materials needed for their tasks.
 They even fend off enemies attacking the base!
-Players cannot hurt them, and they rest at night instead of working.
+Players cannot hurt them, and at night they go to bed and sleep instead of working.
 
 ### Roles
 

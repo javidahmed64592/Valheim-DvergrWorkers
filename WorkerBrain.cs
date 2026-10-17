@@ -48,6 +48,10 @@ namespace DvergrWorkers
         internal WorkerNavigator Navigator { get; private set; }
         internal WorkerLogistics Logistics { get; private set; }
         internal WorkerAnimation Animation { get; private set; }
+        internal WorkerSleep Sleep { get; private set; }
+
+        /// <summary>True while the worker is lying in its bed.</summary>
+        public bool IsAsleep => Sleep != null && Sleep.IsAsleep;
 
         /// <summary>Asks for the next round to start after this many seconds instead of the usual interval (only once).</summary>
         protected void RetrySoon(float seconds)
@@ -125,6 +129,7 @@ namespace DvergrWorkers
             Navigator = new WorkerNavigator(Ai, Character, Role);
             Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
             Animation = new WorkerAnimation(Character, Role, () => Equipment.Tool);
+            Sleep = new WorkerSleep(Nview, Character, Ai);
             Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
             Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
             _nextRound = Time.time + FirstRoundDelay;
@@ -135,6 +140,11 @@ namespace DvergrWorkers
         {
             ApplyHome();
             _lastHealth = Character.GetHealth();
+        }
+
+        private void LateUpdate()
+        {
+            Sleep.ApplyPose();
         }
 
         private void OnDestroy()
@@ -228,6 +238,23 @@ namespace DvergrWorkers
             }
 
             SetStatus(restTime ? "Resting" : IdleNote ?? IdleStatus());
+
+            // At night go to bed and lie there until morning; anything dangerous (or daylight) gets us up again.
+            bool asleep = Sleep.IsAsleep;
+            bool disturbed = _threatened || tookDamage || (!asleep && (hasTarget || ai.IsAlerted()));
+            if (restTime && !disturbed)
+            {
+                if (Sleep.Rest(dt, BedId, out string sleepStatus))
+                {
+                    SetStatus(sleepStatus);
+                    return true;
+                }
+            }
+            else
+            {
+                WorkerBed bed = WorkerBed.FindLoaded(BedId);
+                Sleep.WakeUp(bed != null ? bed.transform.position : Vector3.zero);
+            }
 
             if (_threatened || tookDamage || hasTarget || ai.IsAlerted())
             {
