@@ -60,6 +60,10 @@ These chests must be within the worker's job radius to be used.
 Currently, the workers share input and output chests within their job radius.
 This may be changed in the future to allow for more complex chest management or individual chest assignments.
 
+When a worker deposits an item, it first looks for a chest that already holds that item, even if it is further away.
+If no chest does, it uses the nearest one.
+This keeps your chests organised.
+
 Workers that need chests will not begin their jobs until they are built within the job radius.
 If the output chests are full, the worker stops and the bed's hover text says so.
 

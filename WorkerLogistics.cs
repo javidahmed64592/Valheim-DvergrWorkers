@@ -30,6 +30,9 @@ namespace DvergrWorkers
         private WorkerChest _chest;
         private Func<ItemDrop.ItemData, bool> _filter;
         private bool _fetching;
+
+        /// <summary>The chosen chest already holds some of what is being deposited, so only those items go into it.</summary>
+        private bool _sameItemsOnly;
         private int _limit;
 
         /// <summary>Why the last Begin* returned false or a trip failed.</summary>
@@ -192,9 +195,17 @@ namespace DvergrWorkers
                 return false;
             }
 
+            // Deposits go to a chest that already holds the same kind of item where there is one, so chests stay
+            // organised even if that means a longer walk. Anything with no such chest goes to the nearest one.
+            if (!fetching)
+            {
+                chests = ChestsHoldingCarried(chests);
+            }
+
             Inventory from = fetching ? null : Carried;
             foreach (WorkerChest chest in chests)
             {
+                _sameItemsOnly = !fetching && HoldsCarried(chest);
                 if (chest.Container.IsInUse() || !HasSomethingToMove(chest, from))
                 {
                     continue;
@@ -212,15 +223,65 @@ namespace DvergrWorkers
             return false;
         }
 
+        /// <summary>The names of the items being deposited that this chest already holds.</summary>
+        private HashSet<string> SharedWithCarried(WorkerChest chest)
+        {
+            var carriedNames = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in Carried.GetAllItems())
+            {
+                if (_filter(item))
+                {
+                    carriedNames.Add(item.m_shared.m_name);
+                }
+            }
+
+            var shared = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in chest.Container.GetInventory().GetAllItems())
+            {
+                if (carriedNames.Contains(item.m_shared.m_name))
+                {
+                    shared.Add(item.m_shared.m_name);
+                }
+            }
+            return shared;
+        }
+
+        private bool HoldsCarried(WorkerChest chest)
+        {
+            return SharedWithCarried(chest).Count > 0;
+        }
+
+        /// <summary>The chests (nearest first) that already hold something being deposited, then all the others (nearest first).</summary>
+        private List<WorkerChest> ChestsHoldingCarried(List<WorkerChest> nearestFirst)
+        {
+            var ordered = new List<WorkerChest>();
+            foreach (WorkerChest chest in nearestFirst)
+            {
+                if (HoldsCarried(chest))
+                {
+                    ordered.Add(chest);
+                }
+            }
+            foreach (WorkerChest chest in nearestFirst)
+            {
+                if (!ordered.Contains(chest))
+                {
+                    ordered.Add(chest);
+                }
+            }
+            return ordered;
+        }
+
         /// <summary>Whether a trip to this chest would move anything, given what is carried and what room there is.</summary>
         private bool HasSomethingToMove(WorkerChest chest, Inventory carried)
         {
             Inventory chestInv = chest.Container.GetInventory();
             Inventory source = _fetching ? chestInv : carried;
             Inventory dest = _fetching ? Carried : chestInv;
+            HashSet<string> only = _sameItemsOnly ? SharedWithCarried(chest) : null;
             foreach (ItemDrop.ItemData item in source.GetAllItems())
             {
-                if (_filter(item) && Capacity(dest, item) > 0)
+                if (_filter(item) && (only == null || only.Contains(item.m_shared.m_name)) && Capacity(dest, item) > 0)
                 {
                     return true;
                 }
@@ -238,11 +299,12 @@ namespace DvergrWorkers
             Inventory source = _fetching ? chestInv : Carried;
             Inventory dest = _fetching ? Carried : chestInv;
 
+            HashSet<string> only = _sameItemsOnly ? SharedWithCarried(_chest) : null;
             int moved = 0;
             int remaining = _limit;
             foreach (ItemDrop.ItemData item in new List<ItemDrop.ItemData>(source.GetAllItems()))
             {
-                if (!_filter(item))
+                if (!_filter(item) || (only != null && !only.Contains(item.m_shared.m_name)))
                 {
                     continue;
                 }
