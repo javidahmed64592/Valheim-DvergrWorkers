@@ -80,6 +80,7 @@ namespace DvergrWorkers
             Produces = new HashSet<string>
             {
                 "$item_wood", "$item_finewood", "$item_corewood", "$item_elderbark", "$item_yggdrasilwood",
+                "$item_resin", "$item_feathers",
             },
             DefaultInterval = 90f,
             DefaultReach = 2.5f,

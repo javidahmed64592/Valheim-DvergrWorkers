@@ -23,6 +23,7 @@ namespace DvergrWorkers
         private static readonly HashSet<string> WoodItems = new HashSet<string>
         {
             "$item_wood", "$item_finewood", "$item_corewood", "$item_elderbark", "$item_yggdrasilwood",
+            "$item_resin", "$item_feathers",
         };
 
         private Phase _phase = Phase.Plan;
@@ -59,7 +60,7 @@ namespace DvergrWorkers
             _deliveredLastRound = _deliveredThisRound;
         }
 
-        /// <summary>Wood, plus the tree seeds, cones and acorns felled trees drop (the tree farmer plants those).</summary>
+        /// <summary>Wood, plus the resin, feathers, seeds, cones and acorns felled trees drop (the tree farmer plants those).</summary>
         private static bool IsWood(ItemDrop.ItemData item)
         {
             if (item == null)

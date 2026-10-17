@@ -31,7 +31,7 @@ Players cannot hurt them, and at night they go to bed and sleep instead of worki
 Each job loop:
 
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
-- **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood within its work area.
+- **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood, resin and feathers within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
 - **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, coal, wood, greydwarf eyes, and guck from the input chest, returning any spare fuel afterwards.
 - **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area.
