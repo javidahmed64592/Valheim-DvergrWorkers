@@ -67,14 +67,101 @@ namespace DvergrWorkers
         /// <summary>True if a bed with this id is currently loaded.</summary>
         public static bool IsLoaded(string bedId)
         {
+            return FindLoaded(bedId) != null;
+        }
+
+        public static WorkerBed FindLoaded(string bedId)
+        {
+            if (bedId.Length == 0)
+            {
+                return null;
+            }
             foreach (WorkerBed bed in Instances)
             {
                 if (bed != null && bed.BedId == bedId)
                 {
-                    return true;
+                    return bed;
                 }
             }
-            return false;
+            return null;
+        }
+
+        /// <summary>
+        /// The spot on the bed's edge closest to a point, nudged slightly outward: where someone standing at
+        /// <paramref name="from"/> would walk to in order to get into the bed. Returns the horizontal distance
+        /// from <paramref name="from"/> to the bed's edge.
+        /// </summary>
+        internal float NearestEdge(Vector3 from, out Vector3 edge)
+        {
+            if (!TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength))
+            {
+                edge = transform.position;
+                return Utils.DistanceXZ(from, edge);
+            }
+
+            Vector3 side = Vector3.Cross(Vector3.up, axis);
+            float halfWidth = _halfWidth;
+            Vector3 offset = Vector3.ProjectOnPlane(from - centre, Vector3.up);
+            float along = Mathf.Clamp(Vector3.Dot(offset, axis), -halfLength, halfLength);
+            float across = Mathf.Clamp(Vector3.Dot(offset, side), -halfWidth, halfWidth);
+            Vector3 nearest = centre + axis * along + side * across;
+            nearest.y = from.y;
+
+            Vector3 outward = Vector3.ProjectOnPlane(from - nearest, Vector3.up);
+            float distance = outward.magnitude;
+            edge = distance > 0.01f ? nearest + outward / distance * 0.4f : nearest;
+            return distance;
+        }
+
+        private float _halfWidth = 0.5f;
+
+        /// <summary>
+        /// Where a worker lies down: the middle of the mattress's top surface, and the direction along the bed
+        /// (the way the bed's length runs, which is the longer horizontal side of its model).
+        /// </summary>
+        internal bool TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength)
+        {
+            centre = transform.position;
+            axis = transform.forward;
+            halfLength = 1f;
+
+            bool found = false;
+            Bounds local = new Bounds();
+            foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>())
+            {
+                Bounds world = renderer.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 corner = world.center + Vector3.Scale(world.extents,
+                        new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    Vector3 point = transform.InverseTransformPoint(corner);
+                    if (found)
+                    {
+                        local.Encapsulate(point);
+                    }
+                    else
+                    {
+                        local = new Bounds(point, Vector3.zero);
+                        found = true;
+                    }
+                }
+            }
+
+            if (!found)
+            {
+                centre += Vector3.up * 0.5f;
+                return true;
+            }
+
+            Vector3 top = local.center;
+            top.y = local.max.y;
+            centre = transform.TransformPoint(top);
+            axis = transform.TransformDirection(local.size.x > local.size.z ? Vector3.right : Vector3.forward);
+            axis = Vector3.ProjectOnPlane(axis, Vector3.up).normalized;
+            float scale = Mathf.Abs(transform.lossyScale.x);
+            halfLength = Mathf.Max(local.size.x, local.size.z) * 0.5f * scale;
+            _halfWidth = Mathf.Min(local.size.x, local.size.z) * 0.5f * scale;
+            return true;
         }
 
         private void Update()
