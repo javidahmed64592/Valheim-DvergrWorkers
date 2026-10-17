@@ -90,10 +90,11 @@ namespace DvergrWorkers
         /// Where a worker lies down: the middle of the mattress's top surface, and the direction along the bed
         /// (the way the bed's length runs, which is the longer horizontal side of its model).
         /// </summary>
-        internal bool TryGetSleepSpot(out Vector3 centre, out Vector3 axis)
+        internal bool TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength)
         {
             centre = transform.position;
             axis = transform.forward;
+            halfLength = 1f;
 
             bool found = false;
             Bounds local = new Bounds();
@@ -128,6 +129,7 @@ namespace DvergrWorkers
             centre = transform.TransformPoint(top);
             axis = transform.TransformDirection(local.size.x > local.size.z ? Vector3.right : Vector3.forward);
             axis = Vector3.ProjectOnPlane(axis, Vector3.up).normalized;
+            halfLength = Mathf.Max(local.size.x, local.size.z) * 0.5f * Mathf.Abs(transform.lossyScale.x);
             return true;
         }
 

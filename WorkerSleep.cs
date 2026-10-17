@@ -12,7 +12,7 @@ namespace DvergrWorkers
     {
         public const string AsleepKey = "DW_Asleep";
 
-        private const float ArriveDistance = 1.8f;
+        private const float ArriveDistance = 1.2f;
         private const float GiveUpAfter = 60f;
         private const float WakeStepOut = 1.4f;
         private static readonly Quaternion LyingTilt = Quaternion.Euler(-90f, 0f, 0f);
@@ -29,6 +29,9 @@ namespace DvergrWorkers
         private bool _gaveUp;
         private float _walkTime;
         private bool _modelLying;
+        private bool _holding;
+        private Vector3 _holdPosition;
+        private Quaternion _holdRotation;
 
         public WorkerSleep(ZNetView nview, Character character, MonsterAI ai)
         {
@@ -59,7 +62,7 @@ namespace DvergrWorkers
         {
             status = "Sleeping";
             WorkerBed bed = WorkerBed.FindLoaded(bedId);
-            if (bed == null || !bed.TryGetSleepSpot(out Vector3 centre, out Vector3 axis))
+            if (bed == null || !bed.TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength))
             {
                 WakeUp(Vector3.zero);
                 return false;
@@ -86,9 +89,11 @@ namespace DvergrWorkers
                 return false;
             }
 
-            if (Utils.DistanceXZ(_character.transform.position, centre) > ArriveDistance)
+            // Beds can stand side by side, so walk to the open foot end rather than the middle or the sides.
+            Vector3 approach = centre + axis * (halfLength + 0.8f);
+            if (Utils.DistanceXZ(_character.transform.position, approach) > ArriveDistance)
             {
-                _ai.MoveTo(dt, centre, ArriveDistance * 0.5f, false);
+                _ai.MoveTo(dt, approach, ArriveDistance * 0.5f, false);
                 return true;
             }
 
@@ -119,6 +124,7 @@ namespace DvergrWorkers
             }
 
             _nview.GetZDO().Set(AsleepKey, false);
+            _holding = false;
             ReleaseColliders();
             if (_body != null)
             {
@@ -147,8 +153,10 @@ namespace DvergrWorkers
         /// <summary>Keeps the worker lying still on the bed.</summary>
         private void Hold(WorkerBed bed, Vector3 feet, Vector3 axis)
         {
-            _character.transform.position = feet + Vector3.up * 0.1f;
-            _character.transform.rotation = Quaternion.LookRotation(axis, Vector3.up);
+            _holdPosition = feet + Vector3.up * 0.1f;
+            _holdRotation = Quaternion.LookRotation(axis, Vector3.up);
+            _holding = true;
+            Pin();
             _character.SetLookDir(axis);
             if (_body != null)
             {
@@ -158,15 +166,30 @@ namespace DvergrWorkers
             }
         }
 
+        private void Pin()
+        {
+            _character.transform.position = _holdPosition;
+            _character.transform.rotation = _holdRotation;
+            if (_body != null)
+            {
+                _body.position = _holdPosition;
+                _body.rotation = _holdRotation;
+            }
+        }
+
         /// <summary>Runs on every client: tips the model over while the worker's ZDO says it is asleep.</summary>
         public void ApplyPose()
         {
+            bool asleep = IsAsleep;
+            if (asleep && _holding && _nview.IsOwner())
+            {
+                Pin();
+            }
             if (_model == null)
             {
                 return;
             }
 
-            bool asleep = IsAsleep;
             if (asleep)
             {
                 _model.localRotation = LyingTilt;
