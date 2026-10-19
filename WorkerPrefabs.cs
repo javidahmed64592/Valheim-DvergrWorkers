@@ -8,7 +8,19 @@ namespace DvergrWorkers
 {
     internal static class WorkerPrefabs
     {
-        private const string VanillaDvergr = "Dverger";
+        /// <summary>
+        /// The vanilla Dvergr looks a worker can be born with. The first keeps the original prefab names, so
+        /// workers from earlier versions still load.
+        /// </summary>
+        public static readonly (string Source, string Suffix)[] Variants =
+        {
+            ("Dverger", ""),
+            ("DvergerMage", "Mage"),
+            ("DvergerMageFire", "Fire"),
+            ("DvergerMageIce", "Ice"),
+            ("DvergerMageSupport", "Support"),
+        };
+
         private const string VanillaBed = "bed";
 
         // The reinforced ("iron") chest. Worker chests copy its requirements.
@@ -18,7 +30,10 @@ namespace DvergrWorkers
         {
             foreach (WorkerRole role in WorkerRoles.All)
             {
-                RegisterWorker(role);
+                for (int variant = 0; variant < Variants.Length; variant++)
+                {
+                    RegisterWorker(role, variant);
+                }
                 RegisterBed(role);
             }
 
@@ -85,12 +100,13 @@ namespace DvergrWorkers
             }
         }
 
-        private static void RegisterWorker(WorkerRole role)
+        private static void RegisterWorker(WorkerRole role, int variant)
         {
-            GameObject clone = PrefabManager.Instance.CreateClonedPrefab(role.WorkerPrefab, VanillaDvergr);
+            string source = Variants[variant].Source;
+            GameObject clone = PrefabManager.Instance.CreateClonedPrefab(role.WorkerPrefabFor(variant), source);
             if (clone == null)
             {
-                DvergrWorkersPlugin.Log.LogError("Vanilla prefab not found: " + VanillaDvergr);
+                DvergrWorkersPlugin.Log.LogError("Vanilla prefab not found: " + source);
                 return;
             }
 

@@ -14,6 +14,7 @@ namespace DvergrWorkers
         public const string BedIdKey = "DW_BedId";
         public const string BornKey = "DW_Born";
         public const string SpawnedKey = "DW_Spawned";
+        public const string VariantKey = "DW_Variant";
         public const string HomeKey = "DW_Home";
         public const string StatusKey = "DW_Status";
 
@@ -222,8 +223,12 @@ namespace DvergrWorkers
         {
             var found = new List<ZDO>();
             int index = 0;
-            while (!ZDOMan.instance.GetAllZDOsWithPrefabIterative(Role.WorkerPrefab, found, ref index))
+            for (int variant = 0; variant < WorkerPrefabs.Variants.Length; variant++)
             {
+                index = 0;
+                while (!ZDOMan.instance.GetAllZDOsWithPrefabIterative(Role.WorkerPrefabFor(variant), found, ref index))
+                {
+                }
             }
 
             foreach (ZDO zdo in found)
@@ -238,10 +243,20 @@ namespace DvergrWorkers
 
         private void SpawnWorker(string bedId)
         {
-            GameObject prefab = ZNetScene.instance.GetPrefab(Role.WorkerPrefab);
+            // The look is rolled once, when the bed first spawns its worker, and kept for every respawn.
+            ZDO bedZdo = _nview.GetZDO();
+            int variant = bedZdo.GetInt(VariantKey, -1);
+            if (variant < 0 || variant >= WorkerPrefabs.Variants.Length)
+            {
+                variant = Random.Range(0, WorkerPrefabs.Variants.Length);
+                bedZdo.Set(VariantKey, variant);
+            }
+
+            string prefabName = Role.WorkerPrefabFor(variant);
+            GameObject prefab = ZNetScene.instance.GetPrefab(prefabName);
             if (prefab == null)
             {
-                DvergrWorkersPlugin.Log.LogError("Worker prefab not registered: " + Role.WorkerPrefab);
+                DvergrWorkersPlugin.Log.LogError("Worker prefab not registered: " + prefabName);
                 return;
             }
 
