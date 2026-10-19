@@ -57,6 +57,11 @@ The goal is to add worker NPCs to the game to help maintain player base, defend 
   - Dvergrs are native to the Mistlands, so if players spawn them in other biomes, they could comment on the unfamiliar surroundings.
   - They could also make other biome-based comments such as commenting on how it's cold or hot, or the mobs native to that biome.
   - They could also comment on the presence of other players or workers nearby, acknowledging their actions or simply greeting them.
+- Workers should play the player's own animations, which the Dvergr can use because both share a humanoid avatar. Tool swings already do this by swapping the player's clip into the Dvergr's melee attack slot. More are planned:
+  - Social animations when speaking: play an emote such as `Wave`, `Cheer`, `Laugh 2`, `Shrug`, `Point` or `Thumbsup` that fits the voice line, e.g. a wave when greeting a player and a shrug when an input chest is empty.
+  - Idle animations: when wandering or waiting, occasionally play emotes or sitting animations (`Sitting idle`, `Player_Sit_Chair`), and face the worker or player they are talking to.
+  - Task-specific animations where the generic swing does not fit: `Forge` for the blacksmith, `Cooking` for machines that cook, and `Workbench` for the repairer's crafting.
+  - Sleeping: use `Laying Sleeping`, `Lie Down` or `Lie Down Divan` when a worker goes to bed.
 
 ## General Behaviour
 
