@@ -32,6 +32,17 @@ namespace DvergrWorkers
             }
         }
 
+        /// <summary>
+        /// True for whatever a Dvergr fights with. The crossbow and the mages' staffs sit in the Utility slot and
+        /// are not always typed as weapons (the staffs show up as "Club"), so that slot counts as a weapon too.
+        /// </summary>
+        public static bool IsHeldWeapon(Humanoid humanoid, ItemDrop.ItemData item)
+        {
+            return item.IsWeapon()
+                || item == humanoid.m_utilityItem
+                || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow");
+        }
+
         public WorkerEquipment(Humanoid humanoid, string toolPrefab)
         {
             _humanoid = humanoid;
@@ -83,7 +94,7 @@ namespace DvergrWorkers
                     continue;
                 }
                 dump.Add(item.m_shared.m_name + "(" + item.m_shared.m_itemType + ")");
-                if (item.IsWeapon() || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow"))
+                if (IsHeldWeapon(_humanoid, item))
                 {
                     _stashed.Add(item);
                 }

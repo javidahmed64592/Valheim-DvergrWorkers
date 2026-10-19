@@ -38,7 +38,8 @@ namespace DvergrWorkers
         public ConfigEntry<float> Reach { get; private set; }
         public ConfigEntry<string> AnimationTrigger { get; private set; }
 
-        public string WorkerPrefab => "DW_" + Name + "Dvergr";
+        /// <summary>Prefab name of this role's worker for the given look (see <see cref="WorkerPrefabs.Variants"/>).</summary>
+        public string WorkerPrefabFor(int variant) => "DW_" + Name + "Dvergr" + WorkerPrefabs.Variants[variant].Suffix;
         public string BedPrefab => "DW_" + Name + "Bed";
         /// <summary>Name shown to players when it differs from <see cref="Name"/> (which is used for config and prefabs).</summary>
         public string DisplayName;
