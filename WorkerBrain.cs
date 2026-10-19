@@ -128,7 +128,7 @@ namespace DvergrWorkers
             Equipment = new WorkerEquipment(Humanoid, Role.ToolPrefab);
             Navigator = new WorkerNavigator(Ai, Character, Role);
             Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
-            Animation = new WorkerAnimation(Character, Role, () => Equipment.Tool);
+            Animation = new WorkerAnimation(Character, Role);
             Sleep = new WorkerSleep(Nview, Character, Ai);
             Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
             Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;

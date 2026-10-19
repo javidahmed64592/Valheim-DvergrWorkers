@@ -105,7 +105,7 @@ You can change the work radius, how often each role runs, how close workers need
 
 ## Known limitations
 
-- The Dvergr workers do not have animations for their specific tasks so the visual representation may not accurately reflect their actions.
+- Workers use the player's swing animations for their tools, but these are not adjusted for the Dvergrs so they may look slightly off or unnatural.
 - Occasionally workers may get stuck or be prevented from reaching their work stations.
   If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach.
   Clear pathing around the base minimises how often this happens!
