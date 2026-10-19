@@ -3,8 +3,7 @@
 ## 0.7.0
 
 - Workers now come in a variety of Dvergr looks. Each bed picks one at random the first time it spawns its worker (the original crossbow Dvergr, or one of the four mages) and the worker keeps that look every time it respawns.
-- Workers from earlier versions are unaffected.
-- Mage Dvergr now put their staffs away while working or sleeping, like the crossbow Dvergr do with their crossbows.
+- Workers from earlier versions are unaffected. Rebuild your beds to get new Dvergrs!
 
 ## 0.6.0
 
