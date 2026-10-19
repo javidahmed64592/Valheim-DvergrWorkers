@@ -31,6 +31,16 @@ namespace DvergrWorkers
         }
     }
 
+    [HarmonyPatch(typeof(WearNTear), nameof(WearNTear.Damage))]
+    internal static class WearNTear_Damage_Patch
+    {
+        // Workers fight enemies with area attacks that would otherwise chip away at player-built pieces.
+        private static bool Prefix(HitData hit)
+        {
+            return !(hit.GetAttacker() is Character attacker && WorkerBrain.TryGet(attacker.gameObject, out _));
+        }
+    }
+
     [HarmonyPatch(typeof(NpcTalk), "Update")]
     internal static class NpcTalk_Update_Patch
     {

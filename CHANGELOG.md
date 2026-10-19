@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1
+
+- Workers no longer damage player-built structures when attacking enemies.
+
 ## 0.8.0
 
 - Workers now use the player's own animations when working: the repairer swings the hammer, the woodcutter swings the axe, the farmers use the cultivator, and the machine workers use the player's interact animation.
