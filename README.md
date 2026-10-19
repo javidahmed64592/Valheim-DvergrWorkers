@@ -105,7 +105,7 @@ You can change the work radius, how often each role runs, how close workers need
 
 ## Known limitations
 
-- Workers use the player's swing animations for their tools, but not every action (such as feeding a machine) has its own animation yet.
+- Workers use the player's swing animations for their tools, but these are not adjusted for the Dvergrs so they may look slightly off or unnatural.
 - Occasionally workers may get stuck or be prevented from reaching their work stations.
   If a worker cannot quite get close enough to a target, it will work from a little further away than its normal reach.
   Clear pathing around the base minimises how often this happens!
