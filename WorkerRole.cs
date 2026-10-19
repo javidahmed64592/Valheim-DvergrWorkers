@@ -36,7 +36,6 @@ namespace DvergrWorkers
 
         public ConfigEntry<float> Interval { get; private set; }
         public ConfigEntry<float> Reach { get; private set; }
-        public ConfigEntry<string> AnimationTrigger { get; private set; }
 
         /// <summary>Prefab name of this role's worker for the given look (see <see cref="WorkerPrefabs.Variants"/>).</summary>
         public string WorkerPrefabFor(int variant) => "DW_" + Name + "Dvergr" + WorkerPrefabs.Variants[variant].Suffix;
@@ -55,8 +54,6 @@ namespace DvergrWorkers
             Reach = config.Bind(Name, "ReachDistance", DefaultReach,
                 new ConfigDescription("How close (metres) the worker must get to a target before working on it.",
                     new AcceptableValueRange<float>(1.5f, 12f)));
-            AnimationTrigger = config.Bind(Name, "AnimationTrigger", "",
-                "Animator trigger played when using the tool. Leave empty to pick one automatically.");
         }
     }
 

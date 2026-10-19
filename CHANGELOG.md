@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+
+- Workers now use the player's own animations when working: the repairer swings the hammer, the woodcutter swings the axe, the farmers use the cultivator, and the machine workers use the player's interact animation.
+- Removed the `AnimationTrigger` setting from every role, as workers always use the vanilla tool for their job.
+
 ## 0.7.0
 
 - Workers now come in a variety of Dvergr looks. Each bed picks one at random the first time it spawns its worker (the original crossbow Dvergr, or one of the four mages) and the worker keeps that look every time it respawns.
