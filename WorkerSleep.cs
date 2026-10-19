@@ -158,7 +158,7 @@ namespace DvergrWorkers
             }
         }
 
-        /// <summary>Unequips anything weapon-like (including the crossbow in the utility slot) while the worker lies down.</summary>
+        /// <summary>Unequips anything weapon-like (including the crossbow or staff in the utility slot) while the worker lies down.</summary>
         private void PutWeaponsAway()
         {
             if (_humanoid == null)
@@ -168,7 +168,7 @@ namespace DvergrWorkers
 
             foreach (ItemDrop.ItemData item in new[] { _humanoid.m_rightItem, _humanoid.m_leftItem, _humanoid.m_utilityItem })
             {
-                if (item != null && (item.IsWeapon() || item.m_shared.m_name.ToLowerInvariant().Contains("crossbow")))
+                if (item != null && WorkerEquipment.IsHeldWeapon(_humanoid, item))
                 {
                     _putAway.Add(item);
                 }
