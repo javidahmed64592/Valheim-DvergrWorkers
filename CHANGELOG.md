@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added an `.editorconfig`, `Directory.Build.props` and a CI workflow that runs `dotnet format` and a Release build.
+- Reformatted the code and fixed analyzer warnings to match the new code style rules (no behaviour change).
+
 ## 0.8.1
 
 - Workers no longer damage player-built structures when attacking enemies.
