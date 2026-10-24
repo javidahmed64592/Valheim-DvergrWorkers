@@ -32,6 +32,10 @@
     <!-- Build-time publicizer: makes private fields/methods on game assemblies visible
          to the compiler. -->
     <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <!-- In CI (GitHub Actions) there is no local Valheim install, so game/BepInEx DLLs
