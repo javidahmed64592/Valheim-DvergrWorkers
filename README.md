@@ -1,3 +1,7 @@
+[![CI](https://img.shields.io/github/actions/workflow/status/javidahmed64592/valheim-dvergrworkers/ci.yml?branch=main&style=flat-square&label=CI&logo=github)](https://github.com/javidahmed64592/valheim-dvergrworkers/actions/workflows/ci.yml)
+[![Package](https://img.shields.io/github/actions/workflow/status/javidahmed64592/valheim-dvergrworkers/package.yml?branch=main&style=flat-square&label=Package&logo=github)](https://github.com/javidahmed64592/valheim-dvergrworkers/actions/workflows/package.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # Dvergr Workers
 
 Dvergr workers help around your base and defend it when it is under attack:
@@ -113,3 +117,7 @@ You can change the work radius, how often each role runs, how close workers need
 ## Roadmap
 
 Social behaviour such as chatting and greeting players, and smarter inventory management for workers.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/javidahmed64592/Valheim-DvergrWorkers/blob/main/LICENSE) file for details.
