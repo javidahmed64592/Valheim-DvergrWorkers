@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- Added an `.editorconfig`, `Directory.Build.props` and a CI workflow that runs `dotnet format` and a Release build.
+- Added an `.editorconfig`, `Directory.Build.props` and a CI workflow that runs `dotnet format`, a Release build and a NuGet vulnerability check.
 - Reformatted the code and fixed analyzer warnings to match the new code style rules (no behaviour change).
 - Tidied up packaging scripts and workflow files.
+- Added a `.gitattributes` to keep line endings consistent.
+- Moved the local Valheim install paths into `Directory.Build.props`; set `VALHEIM_DIR` and `BEPINEX_PROFILE_DIR` once to build every mod without editing the `.csproj`.
 - Updated README and icon.
 
 ## 0.8.1

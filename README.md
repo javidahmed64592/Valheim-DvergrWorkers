@@ -2,7 +2,7 @@
 [![Package](https://img.shields.io/github/actions/workflow/status/javidahmed64592/valheim-dvergrworkers/package.yml?branch=main&style=flat-square&label=Package&logo=github)](https://github.com/javidahmed64592/valheim-dvergrworkers/actions/workflows/package.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# Dvergr Workers
+# DvergrWorkers
 
 Dvergr workers help around your base and defend it when it is under attack:
 
@@ -20,19 +20,19 @@ Dvergr workers help around your base and defend it when it is under attack:
 
 To test the productivity and coordination of the workers, I set up a small base in the Plains with various structures and chests for each type of worker.
 
-![Base 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_1.png)
-![Base 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_2.png)
+![Base 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_1.png)
+![Base 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_2.png)
 
 I gave them a handful of seeds and plantable crops, along with some copper ore.
 I then sat back and watched as the workers went about their tasks.
 
-![Input Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_input_1.png)
+![Input Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_3.png)
 
 After a few rounds of work, the workers had become fully self sufficient.
 The initial progress was slow, but as they gathered more resources and completed more tasks, they became more efficient and filled their chests whilst sustaining their own job needs.
 
-![Output Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_output_1.png)
-![Output Chest 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/demo_output_2.png)
+![Output Chest 1](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_4.png)
+![Output Chest 2](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_5.png)
 
 ## How It Works
 
@@ -90,24 +90,24 @@ Items no worker produces are never taken from output chests, so your finished go
 When several workers use the same item, they split the stock of it equally rather than one taking it all.
 For example, the farmer can keep replanting barley while the barley worker mills the rest.
 
-| Role | Input Chest | Output Chest |
-|------|-------------|--------------|
-| Repair Worker | ❌ | ❌ |
-| Woodcutter Worker | ❌ | ✅ |
-| Blacksmith Worker | ✅ | ✅ |
-| Refueler Worker | ✅ | ❌ |
-| Farmer Worker | ✅ | ✅ |
-| Tree Farmer Worker | ✅ | ❌ |
-| Barley Worker | ✅ | ✅ |
-| Flax Worker | ✅ | ✅ |
-| Eitr Worker | ✅ | ✅ |
+| Role               | Input Chest | Output Chest |
+| ------------------ | ----------- | ------------ |
+| Repair Worker      | ❌          | ❌           |
+| Woodcutter Worker  | ❌          | ✅           |
+| Blacksmith Worker  | ✅          | ✅           |
+| Refueler Worker    | ✅          | ❌           |
+| Farmer Worker      | ✅          | ✅           |
+| Tree Farmer Worker | ✅          | ❌           |
+| Barley Worker      | ✅          | ✅           |
+| Flax Worker        | ✅          | ✅           |
+| Eitr Worker        | ✅          | ✅           |
 
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
 You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, and whether workers take each other's items from output chests.
 
-## Known limitations
+## Known Limitations
 
 - Workers use the player's swing animations for their tools, but these are not adjusted for the Dvergrs so they may look slightly off or unnatural.
 - Occasionally workers may get stuck or be prevented from reaching their work stations.
