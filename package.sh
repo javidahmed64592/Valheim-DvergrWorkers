@@ -12,14 +12,15 @@ dotnet build -c Release
 
 rm -rf dist
 
-OUTPUT_DIR="dist/$NAMESPACE-$NAME-$VERSION"
+OUTPUT_DIR="dist/${NAMESPACE}-${NAME}-${VERSION}"
 
-mkdir -p "$OUTPUT_DIR"
-cp "bin/Release/$NAME.dll" manifest.json CHANGELOG.md LICENSE README.md icon.png "$OUTPUT_DIR/"
+mkdir -p "${OUTPUT_DIR}"
+cp "bin/Release/${NAME}.dll" manifest.json CHANGELOG.md LICENSE README.md icon.png "${OUTPUT_DIR}/"
 
-(cd "$OUTPUT_DIR" && zip -r "../$NAMESPACE-$NAME-$VERSION.zip" .)
+(cd "${OUTPUT_DIR}" && zip -r "../$NAMESPACE-$NAME-$VERSION.zip" .)
 
-# Export version for the GitHub Actions artifact upload step
 if [[ -n "${GITHUB_ENV:-}" ]]; then
-    echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+    echo "NAME=${NAME}" >> "${GITHUB_ENV}"
+    echo "NAMESPACE=${NAMESPACE}" >> "${GITHUB_ENV}"
+    echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
 fi
