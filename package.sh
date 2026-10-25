@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the mod, deploys all mod files to your r2modman profile, and produces a Thunderstore-ready zip.
+# Builds the mod and produces a Thunderstore-ready zip in dist/.
 
 set -euo pipefail
 cd "$(dirname "$0")"

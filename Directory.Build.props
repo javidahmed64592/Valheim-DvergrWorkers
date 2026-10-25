@@ -7,4 +7,26 @@
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <!-- ====================================================================
+       Local build paths (not used in CI, which gets the DLLs from NuGet).
+
+       Set these once as environment variables and every mod builds without edits:
+         VALHEIM_DIR          e.g. /path/to/steamapps/common/Valheim
+         BEPINEX_PROFILE_DIR  e.g. /path/to/<mod manager>/profiles/<profile>/BepInEx
+                              (r2modman: ~/.config/r2modmanPlus-local/Valheim/profiles/<profile>/BepInEx)
+
+       Or pass them per build: dotnet build -p:ValheimDir=... -p:BepInExProfileDir=...
+       Otherwise the placeholder paths below are used.
+       ==================================================================== -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">$(VALHEIM_DIR)</ValheimDir>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">/path/to/steamapps/common/Valheim</ValheimDir>
+    <BepInExProfileDir Condition="'$(BepInExProfileDir)' == ''">$(BEPINEX_PROFILE_DIR)</BepInExProfileDir>
+    <BepInExProfileDir Condition="'$(BepInExProfileDir)' == ''">/path/to/mod manager/profiles/profile/BepInEx</BepInExProfileDir>
+
+    <ManagedDir>$(ValheimDir)/valheim_Data/Managed</ManagedDir>
+    <BepInExCoreDir>$(BepInExProfileDir)/core</BepInExCoreDir>
+    <BepInExPluginsDir>$(BepInExProfileDir)/plugins</BepInExPluginsDir>
+  </PropertyGroup>
 </Project>

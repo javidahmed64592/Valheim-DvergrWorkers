@@ -9,23 +9,6 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
-  <!-- ====================================================================
-       EDIT THESE PATHS to point at your local Valheim install.
-
-       ValheimDir: /path/to/steamapps/common/Valheim
-       BepInExProfileDir: /path/to/<mod manager>/profiles/<profile>/BepInEx
-
-       If using r2modman, this would be something like: /home/<user>/.config/r2modmanPlus-local/Valheim/profiles/<profile>/BepInEx
-       ==================================================================== -->
-  <PropertyGroup>
-    <ValheimDir>/path/to/steamapps/common/Valheim</ValheimDir>
-    <BepInExProfileDir>/path/to/mod manager/profiles/profile/BepInEx</BepInExProfileDir>
-
-    <ManagedDir>$(ValheimDir)/valheim_Data/Managed</ManagedDir>
-    <BepInExCoreDir>$(BepInExProfileDir)/core</BepInExCoreDir>
-    <BepInExPluginsDir>$(BepInExProfileDir)/plugins</BepInExPluginsDir>
-  </PropertyGroup>
-
   <ItemGroup>
     <!-- Lets `dotnet build` target net472 on Linux without a Windows targeting pack. -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
@@ -39,53 +22,53 @@
   </ItemGroup>
 
   <!-- In CI (GitHub Actions) there is no local Valheim install, so game/BepInEx DLLs
-       come from NuGet packages instead. Locally they come from ValheimDir above. -->
+       come from NuGet packages instead. Locally they come from ValheimDir (see Directory.Build.props). -->
   <ItemGroup Condition="'$(GITHUB_ACTIONS)' != 'true'">
     <!-- Game + BepInEx assemblies, referenced directly from your install.
          Private=false means they're used only to compile against - never copied
          into your output folder or redistributed with the mod. -->
-    <Reference Include="assembly_valheim">
-      <HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCoreDir)/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="assembly_utils">
       <HintPath>$(ManagedDir)/assembly_utils.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>$(ManagedDir)/UnityEngine.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.AnimationModule">
-      <HintPath>$(ManagedDir)/UnityEngine.AnimationModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.PhysicsModule">
-      <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.AssetBundleModule">
-      <HintPath>$(ManagedDir)/UnityEngine.AssetBundleModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>$(BepInExCoreDir)/BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>$(BepInExCoreDir)/0Harmony.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="Jotunn">
       <HintPath>$(BepInExPluginsDir)/ValheimModding-Jotunn/Jotunn.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ManagedDir)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ManagedDir)/UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ManagedDir)/UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
