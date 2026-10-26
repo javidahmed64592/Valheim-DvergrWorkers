@@ -29,6 +29,9 @@ public abstract class WorkerBrain : MonoBehaviour
     private const float FirstRoundDelay = 10f;
     private const float LeashTolerance = 3f;
 
+    /// <summary>How long after being hurt a worker stays in the vanilla fighting AI.</summary>
+    private const float EngagedHold = 8f;
+
     /// <summary>Tasks may slightly exceed the job radius by this much.</summary>
     protected const float TaskRadiusTolerance = 3f;
 
@@ -39,6 +42,7 @@ public abstract class WorkerBrain : MonoBehaviour
     private int _bedMissingChecks;
     private bool _threatened;
     private float _lastHealth;
+    private float _engagedUntil;
     private bool _hasHome;
     private string _status = "";
 
@@ -228,9 +232,18 @@ public abstract class WorkerBrain : MonoBehaviour
         bool tookDamage = Character.GetHealth() < _lastHealth - 0.01f;
         _lastHealth = Character.GetHealth();
         bool restTime = EnvMan.IsNight() && !WorkerConfig.WorkAtNight.Value;
+        if (tookDamage)
+        {
+            _engagedUntil = Time.time + EngagedHold;
+        }
+        bool engaged = _threatened || Time.time < _engagedUntil;
+        if (!engaged && !InRound)
+        {
+            ForgetDistantTargets(ai);
+        }
         bool hasTarget = ai.GetTargetCreature() != null || ai.GetStaticTarget() != null;
 
-        Equipment.Update();
+        Equipment.Update(restTime || Sleep.IsAsleep);
 
         if (InRound)
         {
@@ -316,6 +329,22 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// The vanilla AI targets anything it senses within its view range, well beyond <see cref="WorkerConfig.ThreatRadius"/>,
+    /// and then runs its combat logic, which sends a mage with a support staff off to "heal" the nearest friend
+    /// (the player). Unless something is really threatening this worker, such targets and the lingering alert
+    /// are dropped so it carries on with its idle behaviour.
+    /// </summary>
+    private static void ForgetDistantTargets(MonsterAI ai)
+    {
+        if (ai.GetTargetCreature() != null || ai.GetStaticTarget() != null || ai.IsAlerted())
+        {
+            ai.m_targetCreature = null;
+            ai.m_targetStatic = null;
+            ai.SetAlerted(alert: false);
+        }
     }
 
     /// <summary>Between rounds: head back if pushed out of the radius, otherwise stroll about. The vanilla idle AI never runs.</summary>

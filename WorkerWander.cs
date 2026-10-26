@@ -24,7 +24,7 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
     private const int ClearanceRays = 8;
     private const int MaxBlockedRays = 1;
     private const float MaxHeightDifference = 4f;
-    private const float StepAwayCooldown = 4f;
+    private const float StepAwayCooldown = 2f;
     private const float FacePlayerAfter = 1f;
     private const float FacePlayerRange = 6f;
     private const float ResumeGap = 0.5f;
@@ -97,11 +97,11 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
         _stillTime += dt;
 
         // Someone is standing too close: shuffle off instead of blocking them.
-        bool crowded = Player.GetClosestPlayer(_transform.position, WorkerConfig.PersonalSpace.Value) != null;
-        if (crowded && Time.time >= _nextStepAway)
+        Player crowding = Player.GetClosestPlayer(_transform.position, WorkerConfig.PersonalSpace.Value);
+        if (crowding != null && Time.time >= _nextStepAway)
         {
             _nextStepAway = Time.time + StepAwayCooldown;
-            if (TryPick(home, StepAwayTravel, out Vector3 away))
+            if (TryStepAway(home, crowding.transform.position, out Vector3 away))
             {
                 BeginWalk(away);
                 return;
@@ -208,6 +208,48 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
             }
         }
         return bestScore > float.MinValue;
+    }
+
+    /// <summary>
+    /// Finds somewhere to go that is clearly further from a player standing too close. Unlike a normal stroll
+    /// it starts from where the worker is, so it works in a crowded room where every spot near home is taken,
+    /// and it skips the open-space and worker-spacing checks: getting out of the way matters more.
+    /// </summary>
+    private bool TryStepAway(Vector3 home, Vector3 from, out Vector3 best)
+    {
+        best = Vector3.zero;
+        Vector3 here = _transform.position;
+        Vector3 away = here - from;
+        away.y = 0f;
+        away = away.sqrMagnitude > 0.01f ? away.normalized : _transform.forward;
+
+        float hereGap = Utils.DistanceXZ(here, from);
+        float bestGap = hereGap + 1.5f;
+        float limit = WorkerConfig.JobRadius.Value;
+
+        for (int i = 0; i < Candidates; i++)
+        {
+            Vector3 dir = Quaternion.Euler(0f, UnityEngine.Random.Range(-80f, 80f), 0f) * away;
+            Vector3 flat = here + (dir * UnityEngine.Random.Range(StepAwayTravel, StepAwayTravel + 4f));
+            if (Utils.DistanceXZ(flat, home) > limit
+                || !Physics.Raycast(new Vector3(flat.x, here.y + 2f, flat.z), Vector3.down, out RaycastHit hit, 10f, _groundMask))
+            {
+                continue;
+            }
+
+            Vector3 spot = hit.point;
+            float gap = NearestPlayerDistance(spot);
+            if (gap <= bestGap || Mathf.Abs(spot.y - home.y) > MaxHeightDifference || Floating.GetLiquidLevel(spot) > spot.y
+                || UnreachableSpots.IsKnown(spot)
+                || Physics.CheckCapsule(spot + (Vector3.up * 0.5f), spot + (Vector3.up * 1.4f), 0.4f, _obstacleMask)
+                || !IsWalkable(here, spot, Vector3.Distance(here, spot)))
+            {
+                continue;
+            }
+            bestGap = gap;
+            best = spot;
+        }
+        return bestGap > hereGap + 1.5f;
     }
 
     /// <summary>True if there is room to stand and nothing hemming the spot in, which rules out corners and tight gaps.</summary>
