@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0
+
+- Idle workers now wander deliberately instead of using the vanilla idle AI: they stand still for a while, then stroll to a reachable, open spot, favouring spots near their bed.
+- Idle workers step out of the player's way and no longer walk up to and surround them.
+- Fixed idle workers wiggling in place: they only turn to face a nearby player while standing still, never while walking.
+- Workers now only drop their idle behaviour when an enemy is within `ThreatRadius` or they have been hurt.
+- Fixed mages holding a staff at the same time as their tool, and going to bed with a staff in hand: the tool slot is now kept free of other weapons while a tool is out, and weapons stay put away while a worker is in bed. Stashed weapons also survive a second task in the same round. Workers without a tool (barley, flax, blacksmith...) now put their staff away while working too.
+- Added `WanderRadius`, `PauseMin`, `PauseMax` and `PersonalSpace` settings under `[Idle]`.
+
 ## 0.9.0
 
 - Added an `.editorconfig`, `Directory.Build.props` and a CI workflow that runs `dotnet format`, a Release build and a NuGet vulnerability check.

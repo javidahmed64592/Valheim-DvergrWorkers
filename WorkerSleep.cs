@@ -171,12 +171,12 @@ internal sealed class WorkerSleep
         {
             if (item != null && WorkerEquipment.IsHeldWeapon(_humanoid, item))
             {
-                _putAway.Add(item);
+                if (!_putAway.Contains(item))
+                {
+                    _putAway.Add(item);
+                }
+                _humanoid.UnequipItem(item, false);
             }
-        }
-        foreach (ItemDrop.ItemData item in _putAway)
-        {
-            _humanoid.UnequipItem(item, false);
         }
     }
 
@@ -224,11 +224,8 @@ internal sealed class WorkerSleep
         Pin();
 
         // A worker that was unloaded while asleep is given its default gear again when it loads back in,
-        // so anything it is holding now is put away again.
-        if (_putAway.Count == 0)
-        {
-            PutWeaponsAway();
-        }
+        // and the AI can swap a weapon in, so anything it is holding now is put away again.
+        PutWeaponsAway();
         _character.SetLookDir(axis);
         if (_body != null)
         {

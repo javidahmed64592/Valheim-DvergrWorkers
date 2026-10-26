@@ -15,6 +15,7 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
     private readonly string _toolPrefab = toolPrefab;
     private readonly List<ItemDrop.ItemData> _stashed = [];
     private float _restoreUntil;
+    private bool _holding;
 
     public ItemDrop.ItemData Tool { get; private set; }
 
@@ -46,8 +47,12 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
 
     public void EquipTool()
     {
+        // Roles without a tool (the machine tenders) still keep their hands free while they work.
         if (string.IsNullOrEmpty(_toolPrefab))
         {
+            _restoreUntil = 0f;
+            StashOtherWeapons();
+            _holding = true;
             return;
         }
 
@@ -70,11 +75,17 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
             return;
         }
 
+        // Already out (a second task in the same round): just make sure nothing else is in hand.
+        if (_holding && _humanoid.IsItemEquiped(Tool))
+        {
+            StashOtherWeapons();
+            return;
+        }
+
         // Tools are carried for free and never wear out.
         Tool.m_durability = Tool.GetMaxDurability();
         _restoreUntil = 0f;
 
-        _stashed.Clear();
         ItemDrop.ItemData[] slots =
         [
             _humanoid.m_leftItem, _humanoid.m_rightItem, _humanoid.m_chestItem, _humanoid.m_legItem,
@@ -89,7 +100,7 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
                 continue;
             }
             dump.Add(item.m_shared.m_name + "(" + item.m_shared.m_itemType + ")");
-            if (IsHeldWeapon(_humanoid, item))
+            if (IsHeldWeapon(_humanoid, item) && !_stashed.Contains(item))
             {
                 _stashed.Add(item);
             }
@@ -101,33 +112,64 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
             _humanoid.UnequipItem(item, false);
         }
         bool ok = _humanoid.EquipItem(Tool, false);
+        _holding = true;
         DvergrWorkersPlugin.Log.LogInfo("Equipped " + _toolPrefab + ": " + ok + ", stashed " + _stashed.Count + " item(s)");
     }
 
     /// <summary>Puts the tool away and starts restoring whatever was stashed.</summary>
     public void ReleaseTool()
     {
-        if (Tool == null)
+        if (!_holding)
         {
             return;
         }
+        _holding = false;
         _humanoid.UnequipItem(Tool, false);
         _restoreUntil = Time.time + 5f;
         Restore();
     }
 
-    /// <summary>Call every AI tick; finishes a restore that did not succeed straight away.</summary>
-    public void Update()
+    /// <summary>
+    /// Call every AI tick. While the tool is out, makes sure it really is in hand and nothing else is (the
+    /// vanilla AI can swap a staff or crossbow back in); otherwise finishes a restore that did not succeed
+    /// straight away, but not while the worker lies in bed.
+    /// </summary>
+    public void Update(bool resting)
     {
-        if (_restoreUntil > 0f)
+        if (_holding)
+        {
+            if (Tool != null && !_humanoid.IsItemEquiped(Tool))
+            {
+                _ = _humanoid.EquipItem(Tool, false);
+            }
+            StashOtherWeapons();
+        }
+        else if (_restoreUntil > 0f && !resting)
         {
             Restore();
+        }
+    }
+
+    /// <summary>Puts away anything weapon-like in hand other than the tool, to be restored with the rest afterwards.</summary>
+    private void StashOtherWeapons()
+    {
+        foreach (ItemDrop.ItemData item in new[] { _humanoid.m_rightItem, _humanoid.m_leftItem, _humanoid.m_utilityItem })
+        {
+            if (item != null && item != Tool && IsHeldWeapon(_humanoid, item))
+            {
+                if (!_stashed.Contains(item))
+                {
+                    _stashed.Add(item);
+                }
+                _humanoid.UnequipItem(item, false);
+            }
         }
     }
 
     /// <summary>Removes the tool from the inventory entirely (the worker is being despawned).</summary>
     public void Discard()
     {
+        _holding = false;
         if (Tool != null)
         {
             _ = _humanoid.GetInventory().RemoveItem(Tool);

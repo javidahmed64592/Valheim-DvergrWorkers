@@ -29,6 +29,9 @@ public abstract class WorkerBrain : MonoBehaviour
     private const float FirstRoundDelay = 10f;
     private const float LeashTolerance = 3f;
 
+    /// <summary>How long after being hurt a worker stays in the vanilla fighting AI.</summary>
+    private const float EngagedHold = 8f;
+
     /// <summary>Tasks may slightly exceed the job radius by this much.</summary>
     protected const float TaskRadiusTolerance = 3f;
 
@@ -39,6 +42,7 @@ public abstract class WorkerBrain : MonoBehaviour
     private int _bedMissingChecks;
     private bool _threatened;
     private float _lastHealth;
+    private float _engagedUntil;
     private bool _hasHome;
     private string _status = "";
 
@@ -53,6 +57,7 @@ public abstract class WorkerBrain : MonoBehaviour
     internal WorkerLogistics Logistics { get; private set; }
     internal WorkerAnimation Animation { get; private set; }
     internal WorkerSleep Sleep { get; private set; }
+    internal WorkerWander Wander { get; private set; }
 
     /// <summary>True while the worker is lying in its bed.</summary>
     public bool IsAsleep => Sleep != null && Sleep.IsAsleep;
@@ -134,6 +139,7 @@ public abstract class WorkerBrain : MonoBehaviour
         Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
         Animation = new WorkerAnimation(Character, Role);
         Sleep = new WorkerSleep(Nview, Character, Ai);
+        Wander = new WorkerWander(transform, Ai, Navigator, DistanceToNearestOther);
         Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
         Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
         _nextRound = Time.time + FirstRoundDelay;
@@ -226,9 +232,18 @@ public abstract class WorkerBrain : MonoBehaviour
         bool tookDamage = Character.GetHealth() < _lastHealth - 0.01f;
         _lastHealth = Character.GetHealth();
         bool restTime = EnvMan.IsNight() && !WorkerConfig.WorkAtNight.Value;
+        if (tookDamage)
+        {
+            _engagedUntil = Time.time + EngagedHold;
+        }
+        bool engaged = _threatened || Time.time < _engagedUntil;
+        if (!engaged && !InRound)
+        {
+            ForgetDistantTargets(ai);
+        }
         bool hasTarget = ai.GetTargetCreature() != null || ai.GetStaticTarget() != null;
 
-        Equipment.Update();
+        Equipment.Update(restTime || Sleep.IsAsleep);
 
         if (InRound)
         {
@@ -269,13 +284,15 @@ public abstract class WorkerBrain : MonoBehaviour
         {
             if (!ChestsReady())
             {
-                return Leash(dt);
+                return Idle(dt);
             }
 
             IdleNote = null;
             InRound = true;
             if (BeginRound())
             {
+                // Roles with a tool have already taken it out; this makes sure every role starts with free hands.
+                Equipment.EquipTool();
                 return RunTask(dt);
             }
             InRound = false;
@@ -284,7 +301,7 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
 
-        return Leash(dt);
+        return Idle(dt);
     }
 
     protected void EndRound(bool finished)
@@ -314,6 +331,42 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// The vanilla AI targets anything it senses within its view range, well beyond <see cref="WorkerConfig.ThreatRadius"/>,
+    /// and then runs its combat logic, which sends a mage with a support staff off to "heal" the nearest friend
+    /// (the player). Unless something is really threatening this worker, such targets and the lingering alert
+    /// are dropped so it carries on with its idle behaviour.
+    /// </summary>
+    private static void ForgetDistantTargets(MonsterAI ai)
+    {
+        if (ai.GetTargetCreature() != null || ai.GetStaticTarget() != null || ai.IsAlerted())
+        {
+            ai.m_targetCreature = null;
+            ai.m_targetStatic = null;
+            ai.SetAlerted(alert: false);
+        }
+    }
+
+    /// <summary>Between rounds: head back if pushed out of the radius, otherwise stroll about. The vanilla idle AI never runs.</summary>
+    private bool Idle(float dt)
+    {
+        return Leash(dt) || Wander.Update(dt, Home);
+    }
+
+    /// <summary>Distance from a point to the closest other loaded worker (so idle workers do not huddle).</summary>
+    private float DistanceToNearestOther(Vector3 point)
+    {
+        float nearest = float.MaxValue;
+        foreach (WorkerBrain other in Instances.Values)
+        {
+            if (other != null && other != this)
+            {
+                nearest = Mathf.Min(nearest, Vector3.Distance(other.transform.position, point));
+            }
+        }
+        return nearest;
     }
 
     /// <summary>Keeps the idle worker inside its radius even if something pushed it out.</summary>
