@@ -291,6 +291,8 @@ public abstract class WorkerBrain : MonoBehaviour
             InRound = true;
             if (BeginRound())
             {
+                // Roles with a tool have already taken it out; this makes sure every role starts with free hands.
+                Equipment.EquipTool();
                 return RunTask(dt);
             }
             InRound = false;

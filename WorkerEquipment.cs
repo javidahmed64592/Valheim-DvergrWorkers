@@ -47,8 +47,12 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
 
     public void EquipTool()
     {
+        // Roles without a tool (the machine tenders) still keep their hands free while they work.
         if (string.IsNullOrEmpty(_toolPrefab))
         {
+            _restoreUntil = 0f;
+            StashOtherWeapons();
+            _holding = true;
             return;
         }
 
@@ -115,7 +119,7 @@ internal sealed class WorkerEquipment(Humanoid humanoid, string toolPrefab)
     /// <summary>Puts the tool away and starts restoring whatever was stashed.</summary>
     public void ReleaseTool()
     {
-        if (Tool == null)
+        if (!_holding)
         {
             return;
         }
