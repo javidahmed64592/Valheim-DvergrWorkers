@@ -53,6 +53,7 @@ public abstract class WorkerBrain : MonoBehaviour
     internal WorkerLogistics Logistics { get; private set; }
     internal WorkerAnimation Animation { get; private set; }
     internal WorkerSleep Sleep { get; private set; }
+    internal WorkerWander Wander { get; private set; }
 
     /// <summary>True while the worker is lying in its bed.</summary>
     public bool IsAsleep => Sleep != null && Sleep.IsAsleep;
@@ -134,6 +135,7 @@ public abstract class WorkerBrain : MonoBehaviour
         Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
         Animation = new WorkerAnimation(Character, Role);
         Sleep = new WorkerSleep(Nview, Character, Ai);
+        Wander = new WorkerWander(transform, Ai, Navigator, DistanceToNearestOther);
         Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
         Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
         _nextRound = Time.time + FirstRoundDelay;
@@ -269,7 +271,7 @@ public abstract class WorkerBrain : MonoBehaviour
         {
             if (!ChestsReady())
             {
-                return Leash(dt);
+                return Idle(dt);
             }
 
             IdleNote = null;
@@ -284,7 +286,7 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
 
-        return Leash(dt);
+        return Idle(dt);
     }
 
     protected void EndRound(bool finished)
@@ -314,6 +316,26 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
         return true;
+    }
+
+    /// <summary>Between rounds: head back if pushed out of the radius, otherwise stroll about. The vanilla idle AI never runs.</summary>
+    private bool Idle(float dt)
+    {
+        return Leash(dt) || Wander.Update(dt, Home);
+    }
+
+    /// <summary>Distance from a point to the closest other loaded worker (so idle workers do not huddle).</summary>
+    private float DistanceToNearestOther(Vector3 point)
+    {
+        float nearest = float.MaxValue;
+        foreach (WorkerBrain other in Instances.Values)
+        {
+            if (other != null && other != this)
+            {
+                nearest = Mathf.Min(nearest, Vector3.Distance(other.transform.position, point));
+            }
+        }
+        return nearest;
     }
 
     /// <summary>Keeps the idle worker inside its radius even if something pushed it out.</summary>

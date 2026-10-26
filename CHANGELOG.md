@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Idle workers now wander deliberately instead of using the vanilla idle AI: they stand still for a while, then stroll to a reachable, open spot, favouring spots near their bed.
+- Idle workers step out of the player's way and no longer walk up to and surround them.
+- Fixed idle workers wiggling in place: they only turn to face a nearby player while standing still, never while walking.
+- Added `WanderRadius`, `PauseMin`, `PauseMax` and `PersonalSpace` settings under `[Idle]`.
+
 ## 0.9.0
 
 - Added an `.editorconfig`, `Directory.Build.props` and a CI workflow that runs `dotnet format`, a Release build and a NuGet vulnerability check.

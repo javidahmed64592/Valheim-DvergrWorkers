@@ -71,6 +71,10 @@ internal static class WorkerConfig
     public static ConfigEntry<int> TreesPerTrip;
     public static ConfigEntry<float> TreeBuildingClearance;
     public static ConfigEntry<bool> WorkAtNight;
+    public static ConfigEntry<float> WanderRadius;
+    public static ConfigEntry<float> WanderPauseMin;
+    public static ConfigEntry<float> WanderPauseMax;
+    public static ConfigEntry<float> PersonalSpace;
     public static ConfigEntry<int> InventoryWidth;
     public static ConfigEntry<int> InventoryHeight;
 
@@ -87,6 +91,16 @@ internal static class WorkerConfig
                 new AcceptableValueRange<float>(5f, 80f)));
         WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
             "If false, workers rest at night and only work in daylight.");
+
+        WanderRadius = config.Bind("Idle", "WanderRadius", 12f,
+            new ConfigDescription("Idle workers stroll within this distance (metres) of their bed, favouring spots close to it. Never more than JobRadius.",
+                new AcceptableValueRange<float>(3f, 100f)));
+        WanderPauseMin = config.Bind("Idle", "PauseMin", 4f,
+            new ConfigDescription("Shortest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
+        WanderPauseMax = config.Bind("Idle", "PauseMax", 12f,
+            new ConfigDescription("Longest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
+        PersonalSpace = config.Bind("Idle", "PersonalSpace", 2.5f,
+            new ConfigDescription("An idle worker that a player stands closer to than this (metres) steps out of their way.", new AcceptableValueRange<float>(0.5f, 10f)));
 
         TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
             "Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched.");

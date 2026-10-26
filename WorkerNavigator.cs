@@ -46,6 +46,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private Func<Vector3, Vector3> _closestPoint;
     private string _targetName;
     private bool _rememberFailure;
+    private float _reach;
     private Vector3 _standPoint;
     private float _walkTimer;
     private float _stuckTimer;
@@ -88,6 +89,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _closestPoint = closestPoint;
         _targetName = targetName;
         _rememberFailure = rememberFailure;
+        _reach = _role.Reach.Value;
 
         // A target this worker already gave up on is not worth walking to again for a while.
         if (rememberFailure && UnreachableSpots.IsKnown(closestPoint(_transform.position)))
@@ -99,13 +101,33 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             return false;
         }
 
+        ResetWalk();
+        return true;
+    }
+
+    /// <summary>
+    /// Arms the navigator to walk to an exact, already validated ground point (such as an idle wander
+    /// destination) and stop within <paramref name="tolerance"/> metres of it.
+    /// </summary>
+    public void BeginPoint(Vector3 point, float tolerance)
+    {
+        Vector3 raised = point + (Vector3.up * EyeHeight);
+        _closestPoint = _ => raised;
+        _targetName = "wander point";
+        _rememberFailure = true;
+        _reach = tolerance;
+        _standPoint = point;
+        ResetWalk();
+    }
+
+    private void ResetWalk()
+    {
         _walkTimer = 0f;
         _stuckTimer = 0f;
         _stuckStrikes = 0;
         _escapes = 0;
         _escapeUntil = 0f;
         _stuckSamplePos = _transform.position;
-        return true;
     }
 
     public NavResult Step(float dt)
@@ -156,7 +178,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
 
         _ai.StopMoving();
-        if (Gap(_transform.position) <= _role.Reach.Value * ToleranceFactor)
+        if (Gap(_transform.position) <= _reach * ToleranceFactor)
         {
             DvergrWorkersPlugin.Log.LogInfo("Stopped short of " + _targetName + " but close enough");
             return NavResult.CloseEnough;
@@ -230,7 +252,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
 
     private bool InReach(Vector3 feet)
     {
-        return Gap(feet) <= _role.Reach.Value;
+        return Gap(feet) <= _reach;
     }
 
     /// <summary>
@@ -245,7 +267,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     public bool CanReach(Func<Vector3, Vector3> closestPoint)
     {
         Func<Vector3, Vector3> previous = _closestPoint;
+        float previousReach = _reach;
         _closestPoint = closestPoint;
+        _reach = _role.Reach.Value;
         try
         {
             return FindStandPoint(out _, strict: true);
@@ -253,6 +277,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         finally
         {
             _closestPoint = previous;
+            _reach = previousReach;
         }
     }
 
@@ -266,7 +291,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
 
         Vector3 target = _closestPoint(_transform.position);
-        float reach = _role.Reach.Value;
+        float reach = _reach;
         float bestLength = float.MaxValue;
         float bestGap = float.MaxValue;
         bool found = false;
