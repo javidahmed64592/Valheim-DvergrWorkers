@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>DvergrWorkers</AssemblyName>
     <Description>Dvergr workers help around your base and defend it when it is under attack.</Description>
-    <Version>0.10.0</Version>
+    <Version>0.10.1</Version>
     <LangVersion>latest</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>

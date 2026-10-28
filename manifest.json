@@ -1,9 +1,9 @@
 {
   "name": "DvergrWorkers",
   "description": "Dvergr workers help around your base and defend it when it is under attack.",
-  "version_number": "0.10.0",
+  "version_number": "0.10.1",
   "dependencies": [
-    "denikson-BepInExPack_Valheim-5.4.2351",
+    "denikson-BepInExPack_Valheim-5.4.2360",
     "ValheimModding-Jotunn-2.30.2"
   ],
   "website_url": "https://github.com/javidahmed64592/Valheim-DvergrWorkers"
