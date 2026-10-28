@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- Updated the BepInExPack_Valheim dependency to 5.4.2360.
+
 ## 0.10.0
 
 - Idle workers now wander deliberately instead of using the vanilla idle AI: they stand still for a while, then stroll to a reachable, open spot, favouring spots near their bed.
