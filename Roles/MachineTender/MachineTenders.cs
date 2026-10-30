@@ -31,13 +31,3 @@ public class FlaxWorker : MachineTenderWorker
 
     protected override string NoMachinesNote => "No spinning wheel nearby";
 }
-
-/// <summary>Feeds sap and soft tissue to eitr refineries and collects the eitr.</summary>
-public class EitrWorker : MachineTenderWorker
-{
-    internal override WorkerRole Role => WorkerRoles.Eitr;
-
-    protected override string AllowedMachines => "eitrrefinery";
-
-    protected override string NoMachinesNote => "No eitr refinery nearby";
-}

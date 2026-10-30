@@ -60,7 +60,7 @@ Each job loop:
   The woodcutter collects the seeds that felled trees drop, so the two keep a forest going.
 - **Barley Worker** - keeps windmills within its work area fed with barley from the input chest, collects the flour, and delivers it to the output chests.
 - **Flax Worker** - keeps spinning wheels within its work area fed with flax from the input chest, collects the linen thread, and delivers it to the output chests.
-- **Eitr Worker** - keeps eitr refineries within its work area fed with sap and soft tissue from the input chest, collects the eitr, and delivers it to the output chests.
+- **Eitr Worker** - taps sap extractors within its work area, keeps eitr refineries fed with that sap and the sap and soft tissue from the input chest (spare sap goes to a chest), collects the eitr, and delivers it to the output chests.
 
 ### Beds
 
