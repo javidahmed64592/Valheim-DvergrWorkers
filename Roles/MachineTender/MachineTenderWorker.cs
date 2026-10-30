@@ -20,7 +20,7 @@ namespace DvergrWorkers.Roles.MachineTender;
 /// </summary>
 public abstract class MachineTenderWorker : WorkerBrain
 {
-    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Work = 3, Deposit = 4 }
+    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Work = 3, Deposit = 4, Gather = 5 }
     private enum Stage { Empty = 0, Collect = 1, Feed = 2 }
 
     /// <summary>Something to put into a machine: coal for its fuel slot, or one of the items it can process.</summary>
@@ -55,6 +55,8 @@ public abstract class MachineTenderWorker : WorkerBrain
     private readonly HashSet<string> _missingOre = [];
     private float _lastDiagnostic = -1000f;
     private bool _deliverFirst;
+    private bool _gatherPending;
+    private bool _depositSurplus;
     private int _handled;
     private int _handledLastRound;
     private readonly HashSet<Smelter> _served = [];
@@ -96,6 +98,27 @@ public abstract class MachineTenderWorker : WorkerBrain
     /// <summary>Shown on the bed when none of the role's machines are in range.</summary>
     protected abstract string NoMachinesNote { get; }
 
+    /// <summary>
+    /// Called at the start of a round. A role that collects its own inputs (the eitr worker tapping sap
+    /// extractors) returns true if it has something to gather, after resetting any state from earlier rounds.
+    /// </summary>
+    protected virtual bool BeginGather()
+    {
+        return false;
+    }
+
+    /// <summary>Runs the gathering once per round, before the machines are tended. Returns true while still busy.</summary>
+    protected virtual bool Gather(float dt)
+    {
+        return false;
+    }
+
+    /// <summary>Gathered inputs the machines had no room for. They are stored in a chest once the machines are tended.</summary>
+    protected virtual bool IsSurplus(ItemDrop.ItemData item)
+    {
+        return false;
+    }
+
     protected override string IdleStatus()
     {
         return _handledLastRound > 0
@@ -114,6 +137,18 @@ public abstract class MachineTenderWorker : WorkerBrain
     private bool IsProduct(ItemDrop.ItemData item)
     {
         return item != null && _productNames.Contains(item.m_shared.m_name);
+    }
+
+    private bool CarryingSurplus()
+    {
+        foreach (ItemDrop.ItemData item in Logistics.Carried.GetAllItems())
+        {
+            if (IsSurplus(item))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool CarryingProduct()
@@ -392,8 +427,11 @@ public abstract class MachineTenderWorker : WorkerBrain
         _machine = null;
         _fetchActive = false;
 
+        _gatherPending = BeginGather();
+        _depositSurplus = false;
+
         List<Smelter> machines = FindMachines();
-        if (machines.Count == 0)
+        if (machines.Count == 0 && !_gatherPending)
         {
             _handledLastRound = 0;
             IdleNote = NoMachinesNote;
@@ -401,7 +439,7 @@ public abstract class MachineTenderWorker : WorkerBrain
         }
 
         _deliverFirst = CarryingProduct();
-        bool work = _deliverFirst;
+        bool work = _deliverFirst || _gatherPending;
         foreach (Smelter machine in machines)
         {
             if (HasPendingOutput(machine) || BuildNeeds(machine).Count > 0)
@@ -433,6 +471,7 @@ public abstract class MachineTenderWorker : WorkerBrain
             Phase.Walk => Walk(dt),
             Phase.Work => Work(dt),
             Phase.Deposit => Deposit(dt),
+            Phase.Gather => GatherPhase(dt),
             _ => false,
         };
     }
@@ -453,6 +492,13 @@ public abstract class MachineTenderWorker : WorkerBrain
         {
             _deliverFirst = false;
             return StartDeposit();
+        }
+
+        if (_gatherPending)
+        {
+            _gatherPending = false;
+            _phase = Phase.Gather;
+            return true;
         }
 
         // Fuel users still waiting, and which fuels some machine in range makes.
@@ -535,6 +581,10 @@ public abstract class MachineTenderWorker : WorkerBrain
         if (CarryingProduct())
         {
             return StartDeposit();
+        }
+        if (CarryingSurplus() && StartSurplusDeposit())
+        {
+            return true;
         }
         if (_handled == 0 && _starved)
         {
@@ -789,8 +839,32 @@ public abstract class MachineTenderWorker : WorkerBrain
             return Abort(Logistics.Reason);
         }
 
+        _depositSurplus = false;
         _phase = Phase.Deposit;
         SetStatus("Delivering product to a chest");
+        return true;
+    }
+
+    /// <summary>Stores leftover gathered inputs, preferably in an input chest where they will be fetched again.</summary>
+    private bool StartSurplusDeposit()
+    {
+        if (!Logistics.BeginDeposit(IsSurplus, ChestKind.Input) && !Logistics.BeginDeposit(IsSurplus, ChestKind.Output))
+        {
+            return false;
+        }
+
+        _depositSurplus = true;
+        _phase = Phase.Deposit;
+        SetStatus("Storing spare supplies in a chest");
+        return true;
+    }
+
+    private bool GatherPhase(float dt)
+    {
+        if (!Gather(dt))
+        {
+            _phase = Phase.Plan;
+        }
         return true;
     }
 
@@ -806,6 +880,12 @@ public abstract class MachineTenderWorker : WorkerBrain
 
         if (Logistics.Transferred == 0)
         {
+            if (_depositSurplus)
+            {
+                // No chest has room for the spare supplies; they stay with the worker.
+                EndRound(finished: true);
+                return false;
+            }
             return Abort("Output chests are full");
         }
 
