@@ -1,4 +1,6 @@
-namespace DvergrWorkers;
+using DvergrWorkers.Core;
+
+namespace DvergrWorkers.Roles.MachineTender;
 
 /// <summary>Tends charcoal kilns, smelters and blast furnaces.</summary>
 public class BlacksmithWorker : MachineTenderWorker

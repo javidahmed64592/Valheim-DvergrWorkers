@@ -1,8 +1,13 @@
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+using DvergrWorkers.Roles.Farmer;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.Woodcutter;
 
 /// <summary>
 /// Woodcutter role: each round it fells a few standing trees inside the job radius, chops the logs

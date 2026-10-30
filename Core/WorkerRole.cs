@@ -3,9 +3,19 @@ using System.Collections.Generic;
 
 using BepInEx.Configuration;
 
+using DvergrWorkers.Beds;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Prefabs;
+using DvergrWorkers.Roles.Farmer;
+using DvergrWorkers.Roles.MachineTender;
+using DvergrWorkers.Roles.Refueler;
+using DvergrWorkers.Roles.Repair;
+using DvergrWorkers.Roles.TreeFarmer;
+using DvergrWorkers.Roles.Woodcutter;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Core;
 
 /// <summary>
 /// Everything that distinguishes one worker role from another. Adding a role means adding an entry to

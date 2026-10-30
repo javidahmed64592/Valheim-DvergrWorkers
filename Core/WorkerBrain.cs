@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Beds;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+using DvergrWorkers.Prefabs;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Core;
 
 /// <summary>
 /// <para>

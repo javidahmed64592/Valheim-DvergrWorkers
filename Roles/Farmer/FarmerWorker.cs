@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.Farmer;
 
 /// <summary>
 /// Farmer role: harvests ripe crops growing on tilled soil and plants every free tilled spot in its job

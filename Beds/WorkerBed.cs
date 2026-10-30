@@ -1,10 +1,13 @@
 using System.Collections.Generic;
-
 using System.Diagnostics.CodeAnalysis;
+
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Prefabs;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Beds;
 
 /// <summary>
 /// Replaces the vanilla Bed behaviour on worker beds: spawns and respawns the bed's worker and

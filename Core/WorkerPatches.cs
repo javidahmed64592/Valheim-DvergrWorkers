@@ -2,7 +2,7 @@ using HarmonyLib;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Core;
 
 [HarmonyPatch(typeof(MonsterAI), nameof(MonsterAI.UpdateAI))]
 internal static class MonsterAI_UpdateAI_Patch

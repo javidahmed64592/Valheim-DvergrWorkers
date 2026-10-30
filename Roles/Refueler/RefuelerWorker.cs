@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.Refueler;
 
 /// <summary>
 /// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood,

@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Movement;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.Repair;
 
 /// <summary>
 /// Repair role: each round it collects the damaged player-built pieces inside the job radius, then walks

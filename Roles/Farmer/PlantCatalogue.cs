@@ -4,7 +4,7 @@ using System.Linq;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.Farmer;
 
 /// <summary>One plantable thing from the cultivator's build menu: a crop or a tree sapling.</summary>
 internal sealed class PlantType

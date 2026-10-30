@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+using DvergrWorkers.Roles.Farmer;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.TreeFarmer;
 
 /// <summary>
 /// Tree farmer role: plants tree saplings (from tree seeds, cones and acorns in the input chest) on suitable

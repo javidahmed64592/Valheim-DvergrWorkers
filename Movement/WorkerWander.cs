@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Movement;
 
 /// <summary>
 /// Idle behaviour for a worker between rounds: stand still for a while, then stroll to a nearby spot and

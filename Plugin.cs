@@ -3,6 +3,9 @@ using System;
 using BepInEx;
 using BepInEx.Configuration;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Prefabs;
+
 using HarmonyLib;
 
 using Jotunn.Managers;
