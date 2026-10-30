@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Logistics;
 
 /// <summary>
 /// Gives a worker its tool as a free, indestructible inventory item and holds it while working.

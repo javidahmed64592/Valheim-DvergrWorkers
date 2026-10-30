@@ -1,12 +1,16 @@
 using System.Linq;
 
+using DvergrWorkers.Beds;
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+
 using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.Managers;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Prefabs;
 
 internal static class WorkerPrefabs
 {

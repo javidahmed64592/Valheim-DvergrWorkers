@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Roles.MachineTender;
 
 /// <summary>
 /// Base for the roles that keep machines fed and emptied: the blacksmith (charcoal kilns, smelters and blast

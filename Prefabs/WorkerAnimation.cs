@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Prefabs;
 
 /// <summary>
 /// Plays a tool swing on the Dvergr. The Dvergr and the player share a humanoid avatar, so the player's own

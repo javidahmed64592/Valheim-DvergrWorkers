@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 
+using DvergrWorkers.Logistics;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Beds;
 
 /// <summary>
 /// Puts a resting worker to bed: it walks to its bed, lies down on it and stays there until morning. The

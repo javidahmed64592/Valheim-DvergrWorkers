@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
+using DvergrWorkers.Core;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Movement;
 
 internal enum NavResult
 {

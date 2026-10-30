@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Movement;
 
 /// <summary>
 /// Remembers places a worker gave up on reaching, for a few minutes, so that it plans around them instead of

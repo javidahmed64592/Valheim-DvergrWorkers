@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 
+using DvergrWorkers.Core;
+using DvergrWorkers.Movement;
+
 using UnityEngine;
 
-namespace DvergrWorkers;
+namespace DvergrWorkers.Logistics;
 
 internal enum LogisticsResult
 {
