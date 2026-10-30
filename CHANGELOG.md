@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
 - The Eitr Worker now taps sap extractors in its job area: it empties them, picks up the sap that drops, tops up the eitr refineries with it, and stores any spare sap in a chest.
 - Restructured the codebase for better maintainability.
