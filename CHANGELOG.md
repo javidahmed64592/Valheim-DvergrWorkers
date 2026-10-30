@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Restructured the codebase for better maintainability.
+
 ## 0.10.1
 
 - Updated the BepInExPack_Valheim dependency to 5.4.2360.
