@@ -10,7 +10,7 @@ using UnityEngine;
 namespace DvergrWorkers.Roles.Refueler;
 
 /// <summary>
-/// Refueler role: tops up the torches, fires, braziers and hearths inside the job radius with resin, wood,
+/// Refueler role: tops up the torches, fires, braziers, hearths, stone ovens and hot tubs inside the job radius with resin, wood,
 /// coal, greydwarf eyes or guck from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
 /// as it can in one trip and returns what is left over to the input chest.
 /// </summary>
@@ -24,7 +24,7 @@ public class RefuelerWorker : WorkerBrain
     private static readonly string[] FuelPrefabs = ["Resin", "Coal", "Wood", "GreydwarfEye", "Guck"];
 
     private Phase _phase = Phase.Plan;
-    private Fireplace _fire;
+    private Component _fire;
     private string _fuelShared;
     private int _toAdd;
     private float _timer;
@@ -32,8 +32,8 @@ public class RefuelerWorker : WorkerBrain
     private string _missingFuel = "";
     private int _refueledThisRound;
     private int _refueledLastRound;
-    private readonly HashSet<Fireplace> _served = [];
-    private readonly HashSet<Fireplace> _unreachable = [];
+    private readonly HashSet<Component> _served = [];
+    private readonly HashSet<Component> _unreachable = [];
     private readonly HashSet<string> _fuelNames = [];
 
     internal override WorkerRole Role => WorkerRoles.Refueler;
@@ -68,24 +68,62 @@ public class RefuelerWorker : WorkerBrain
         return false;
     }
 
-    private static bool IsValid(Fireplace fire)
+    private static ZNetView View(Component fire)
     {
-        return fire != null && fire.m_nview != null && fire.m_nview.IsValid();
+        return fire switch
+        {
+            Fireplace f => f.m_nview,
+            CookingStation c => c.m_nview,
+            Smelter m => m.m_nview,
+            _ => null,
+        };
     }
 
-    private static float Fuel(Fireplace fire)
+    private static bool IsValid(Component fire)
     {
-        return fire.m_nview.GetZDO().GetFloat(ZDOVars.s_fuel);
+        if (fire == null)
+        {
+            return false;
+        }
+        ZNetView view = View(fire);
+        return view != null && view.IsValid();
     }
 
-    private static string PrefabOf(Fireplace fire)
+    private static float Fuel(Component fire)
     {
-        return Utils.GetPrefabName(fire.m_nview.gameObject);
+        return View(fire).GetZDO().GetFloat(ZDOVars.s_fuel);
     }
 
-    private static string FuelShared(Fireplace fire)
+    private static float MaxFuel(Component fire)
     {
-        return fire.m_fuelItem.m_itemData.m_shared.m_name;
+        return fire switch
+        {
+            Fireplace f => f.m_maxFuel,
+            CookingStation c => c.m_maxFuel,
+            Smelter m => m.m_maxFuel,
+            _ => 0f,
+        };
+    }
+
+    private static ItemDrop FuelItem(Component fire)
+    {
+        return fire switch
+        {
+            Fireplace f => f.m_fuelItem,
+            CookingStation c => c.m_fuelItem,
+            Smelter m => m.m_fuelItem,
+            _ => null,
+        };
+    }
+
+    private static string PrefabOf(Component fire)
+    {
+        return Utils.GetPrefabName(View(fire).gameObject);
+    }
+
+    private static string FuelShared(Component fire)
+    {
+        return FuelItem(fire).m_itemData.m_shared.m_name;
     }
 
     private bool IsFuel(ItemDrop.ItemData item)
@@ -94,34 +132,61 @@ public class RefuelerWorker : WorkerBrain
     }
 
     /// <summary>How many fuel items this fire can still take, or 0 if it should be left alone.</summary>
-    private static int Room(Fireplace fire)
+    private static int Room(Component fire)
     {
         float fuel = Fuel(fire);
-        float threshold = fire.m_maxFuel * WorkerConfig.RefuelBelow.Value;
-        return fuel <= threshold ? Mathf.FloorToInt(fire.m_maxFuel - fuel) : 0;
+        float max = MaxFuel(fire);
+        float threshold = max * WorkerConfig.RefuelBelow.Value;
+        return fuel <= threshold ? Mathf.FloorToInt(max - fuel) : 0;
+    }
+
+    /// <summary>Whether this is a fuel-burning piece the refueler could tend, before looking at which fuel it burns.</summary>
+    private static bool IsRefillable(Component fire)
+    {
+        if (!IsValid(fire) || FuelItem(fire) == null)
+        {
+            return false;
+        }
+
+        // Turned-off fires stay off. Stone ovens burn fuel, but cooking stations over an open fire do not. Smelters
+        // only count if they do nothing but burn fuel, i.e. hot tubs: smelters, furnaces and refineries belong to
+        // the machine tenders, which top up their fuel along with their ore.
+        return fire switch
+        {
+            Fireplace f => !f.m_infiniteFuel && f.m_canRefill && f.m_secPerFuel > 0f
+                && f.m_nview.GetZDO().GetInt(ZDOVars.s_state, 1) == 1,
+            CookingStation c => c.m_useFuel && c.m_maxFuel > 0,
+            Smelter m => m.m_maxFuel > 0 && m.m_maxOre == 0 && m.m_conversion.Count == 0,
+            _ => false,
+        };
     }
 
     /// <summary>Fires the refueler looks after: player-built, refillable, using one of the configured fuels.</summary>
-    private List<Fireplace> FindFires()
+    private List<Component> FindFires()
     {
         HashSet<string> allowed = [.. FuelPrefabs];
-        List<Fireplace> found = [];
+        List<Component> found = [];
         _fuelNames.Clear();
 
-        foreach (Fireplace fire in FindObjectsByType<Fireplace>(FindObjectsSortMode.None))
+        List<Component> candidates = [];
+        candidates.AddRange(FindObjectsByType<Fireplace>(FindObjectsSortMode.None));
+        candidates.AddRange(FindObjectsByType<CookingStation>(FindObjectsSortMode.None));
+        candidates.AddRange(FindObjectsByType<Smelter>(FindObjectsSortMode.None));
+
+        foreach (Component fire in candidates)
         {
-            if (!IsValid(fire) || fire.m_infiniteFuel || !fire.m_canRefill || fire.m_fuelItem == null || fire.m_secPerFuel <= 0f)
+            if (!IsRefillable(fire))
             {
                 continue;
             }
-            if (!InJobArea(fire.transform.position) || !allowed.Contains(fire.m_fuelItem.gameObject.name.Trim()))
+            if (!InJobArea(fire.transform.position) || !allowed.Contains(FuelItem(fire).gameObject.name.Trim()))
             {
                 continue;
             }
 
-            // Turned-off fires stay off, and fires that came with the world are not ours to tend.
+            // Fires that came with the world are not ours to tend.
             Piece piece = fire.GetComponentInParent<Piece>();
-            if (piece == null || !piece.IsPlacedByPlayer() || fire.m_nview.GetZDO().GetInt(ZDOVars.s_state, 1) != 1)
+            if (piece == null || !piece.IsPlacedByPlayer())
             {
                 continue;
             }
@@ -160,9 +225,9 @@ public class RefuelerWorker : WorkerBrain
         _refueledThisRound = 0;
         _fire = null;
 
-        List<Fireplace> fires = FindFires();
+        List<Component> fires = FindFires();
         bool work = false;
-        foreach (Fireplace fire in fires)
+        foreach (Component fire in fires)
         {
             if (Room(fire) <= 0)
             {
@@ -190,9 +255,9 @@ public class RefuelerWorker : WorkerBrain
         return true;
     }
 
-    private static string FuelName(Fireplace fire)
+    private static string FuelName(Component fire)
     {
-        return fire.m_fuelItem.gameObject.name.ToLowerInvariant();
+        return FuelItem(fire).gameObject.name.ToLowerInvariant();
     }
 
     protected override bool RunTask(float dt)
@@ -210,12 +275,12 @@ public class RefuelerWorker : WorkerBrain
 
     private bool Plan()
     {
-        List<Fireplace> fires = FindFires();
+        List<Component> fires = FindFires();
 
         // Nearest fire that needs fuel and that we can get fuel for.
-        Fireplace best = null;
+        Component best = null;
         float bestDist = float.MaxValue;
-        foreach (Fireplace fire in fires)
+        foreach (Component fire in fires)
         {
             if (_served.Contains(fire) || _unreachable.Contains(fire) || Room(fire) <= 0)
             {
@@ -256,7 +321,7 @@ public class RefuelerWorker : WorkerBrain
 
         // Fetch enough for this fire and every other one that burns the same fuel, in a single trip.
         int wanted = 0;
-        foreach (Fireplace fire in fires)
+        foreach (Component fire in fires)
         {
             if (!_served.Contains(fire) && !_unreachable.Contains(fire) && FuelShared(fire) == _fuelShared)
             {
@@ -307,8 +372,8 @@ public class RefuelerWorker : WorkerBrain
             return true;
         }
 
-        Fireplace fire = _fire;
-        if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(fire.m_nview.gameObject, from), rememberFailure: true))
+        Component fire = _fire;
+        if (!Navigator.Begin(PrefabOf(fire), from => WorkerNavigator.ClosestPointOnColliders(View(fire).gameObject, from), rememberFailure: true))
         {
             DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to " + PrefabOf(fire) + ", skipping");
             _ = _unreachable.Add(fire);
@@ -333,7 +398,7 @@ public class RefuelerWorker : WorkerBrain
         {
             case NavResult.InReach:
             case NavResult.CloseEnough:
-                _fire.m_nview.ClaimOwnership();
+                View(_fire).ClaimOwnership();
                 _phase = Phase.Work;
                 _timer = 0.2f;
                 SetStatus("Refuelling a " + PrefabOf(_fire).Replace('_', ' '));
@@ -382,7 +447,7 @@ public class RefuelerWorker : WorkerBrain
         }
 
         // Same limit the game applies when a player adds fuel.
-        bool full = fuel == null || _toAdd <= 0 || Mathf.CeilToInt(Fuel(_fire)) >= _fire.m_maxFuel;
+        bool full = fuel == null || _toAdd <= 0 || Mathf.CeilToInt(Fuel(_fire)) >= MaxFuel(_fire);
         if (full)
         {
             _ = _served.Add(_fire);
@@ -391,7 +456,7 @@ public class RefuelerWorker : WorkerBrain
         }
 
         _ = Logistics.Carried.RemoveItem(fuel, 1);
-        _fire.m_nview.InvokeRPC("RPC_AddFuel");
+        View(_fire).InvokeRPC("RPC_AddFuel");
         _toAdd--;
         _refueledThisRound++;
         return true;

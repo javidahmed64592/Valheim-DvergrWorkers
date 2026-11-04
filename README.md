@@ -9,7 +9,7 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Repair Worker** - fixes damaged structures around the base.
 - **Woodcutter Worker** - fells trees and collects wood.
 - **Blacksmith Worker** - manages smelters, kilns, and blast furnaces.
-- **Refueler Worker** - keeps torches, fires, and braziers topped up with fuel.
+- **Refueler Worker** - keeps torches, fires, braziers, stone ovens, and hot tubs topped up with fuel.
 - **Farmer Worker** - harvests crops and plants your tilled soil.
 - **Tree Farmer Worker** - plants trees from seeds.
 - **Barley Worker** - feeds windmills with barley and collects the flour.
@@ -49,7 +49,7 @@ Each job loop:
 - **Repair Worker** - finds all damaged pieces within its work area and repairs them.
 - **Woodcutter Worker** - fells trees, chops logs, clears leftover stumps, and collects wood, resin and feathers within its work area.
 - **Blacksmith Worker** - adds wood to kilns, refuels smelters and blast furnaces before adding ores/scrap to them, collects the finished products and delivers them to the output chests.
-- **Refueler Worker** - tops up the torches, fires, and braziers you have built with resin, coal, wood, greydwarf eyes, and guck from the input chest, returning any spare fuel afterwards.
+- **Refueler Worker** - tops up the torches, fires, braziers, stone ovens, and hot tubs you have built with resin, coal, wood, greydwarf eyes, and guck from the input chest, returning any spare fuel afterwards.
 - **Farmer Worker** - harvests ripe crops growing on tilled soil and plants every free tilled spot within its work area.
   It never tills, so you decide where the farm is.
   It plants seeds from the input chest, spreading crops evenly, and plants raw ingredients (carrots, turnips...) to make more seeds when a crop's seeds run low.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.2
+
+- The Refueler Worker now also refuels hot tubs and stone ovens with wood, alongside torches, fires and braziers.
+
 ## 0.11.1
 
 - The Tree Farmer Worker now only plants trees in dirt and grass, not stone-paved paths or cultivated soil.
