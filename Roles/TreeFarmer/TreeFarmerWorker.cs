@@ -304,8 +304,7 @@ public class TreeFarmerWorker : WorkerBrain
     /// <summary>Stone-paved ground (the hoe's "paved" paint) is for walking on, not for trees.</summary>
     private static bool NearPaved(Vector3 p, float room)
     {
-        Vector3[] offsets = [Vector3.zero, Vector3.right * room, Vector3.left * room, Vector3.forward * room, Vector3.back * room];
-        foreach (Vector3 offset in offsets)
+        foreach (Vector3 offset in [Vector3.zero, Vector3.right * room, Vector3.left * room, Vector3.forward * room, Vector3.back * room])
         {
             Heightmap heightmap = Heightmap.FindHeightmap(p + offset);
             if (heightmap != null && heightmap.GetPaintMask(p + offset).b > 0.3f)
