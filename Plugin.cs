@@ -20,7 +20,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.dvergrworkers";
     public const string PluginName = "Dvergr Workers";
-    public const string PluginVersion = "0.11.0";
+    public const string PluginVersion = "0.11.1";
 
     internal static BepInEx.Logging.ManualLogSource Log { get; private set; }
 
@@ -64,6 +64,8 @@ internal static class WorkerConfig
     public static ConfigEntry<float> JobRadius;
     public static ConfigEntry<float> RespawnDelay;
     public static ConfigEntry<float> ThreatRadius;
+    public static ConfigEntry<float> NoticeRadius;
+    public static ConfigEntry<float> ThreatRetryDelay;
     public static ConfigEntry<int> TreesPerRound;
     public static ConfigEntry<int> StumpsPerRound;
     public static ConfigEntry<bool> TakeFromOutputChests;
@@ -90,8 +92,14 @@ internal static class WorkerConfig
             new ConfigDescription("Seconds after a worker is lost before its bed spawns a replacement.",
                 new AcceptableValueRange<float>(1f, 600f)));
         ThreatRadius = config.Bind("Workers", "ThreatRadius", 25f,
-            new ConfigDescription("Workers drop their task and defend themselves if an enemy comes within this distance (metres).",
+            new ConfigDescription("Workers drop their task and defend themselves if an enemy within this distance (metres) is hunting them or the player.",
                 new AcceptableValueRange<float>(5f, 80f)));
+        NoticeRadius = config.Bind("Workers", "NoticeRadius", 8f,
+            new ConfigDescription("Any enemy this close (metres) interrupts a worker's task, even if it has not noticed the worker yet. Farther enemies that are not hunting anyone are ignored.",
+                new AcceptableValueRange<float>(1f, 40f)));
+        ThreatRetryDelay = config.Bind("Workers", "ThreatRetryDelay", 10f,
+            new ConfigDescription("Seconds after a threat has passed before an interrupted worker goes back to work, instead of waiting for the next task interval.",
+                new AcceptableValueRange<float>(1f, 120f)));
         WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
             "If false, workers rest at night and only work in daylight.");
 
