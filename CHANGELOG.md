@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.11.2
+## Unreleased
 
 - The Refueler Worker now also refuels hot tubs and stone ovens with wood, and shield generators (including the Home Bubble mod's bubbles) with bone fragments or charred bones, alongside torches, fires and braziers.
 
