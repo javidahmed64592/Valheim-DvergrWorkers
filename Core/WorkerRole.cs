@@ -118,7 +118,7 @@ internal static class WorkerRoles
     public static readonly WorkerRole Refueler = new()
     {
         Name = "Refueler",
-        BedDescription = "A bed for a Dvergr refueler that keeps nearby torches, fires, braziers, stone ovens and hot tubs burning.",
+        BedDescription = "A bed for a Dvergr refueler that keeps nearby torches, fires, braziers, stone ovens, hot tubs and shield generators running.",
         BrainType = typeof(RefuelerWorker),
         ToolPrefab = "Lantern",
         Chests = ChestUse.Input,

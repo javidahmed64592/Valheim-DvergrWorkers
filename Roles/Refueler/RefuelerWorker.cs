@@ -10,7 +10,7 @@ using UnityEngine;
 namespace DvergrWorkers.Roles.Refueler;
 
 /// <summary>
-/// Refueler role: tops up the torches, fires, braziers, hearths, stone ovens and hot tubs inside the job radius with resin, wood,
+/// Refueler role: tops up the torches, fires, braziers, hearths, stone ovens, hot tubs and shield generators (including Home Bubbles) inside the job radius with resin, wood,
 /// coal, greydwarf eyes or guck from the input chest (or the blacksmith's coal from an output chest), carrying a Dvergr lantern as it goes. It fetches fuel for as many fires
 /// as it can in one trip and returns what is left over to the input chest.
 /// </summary>
@@ -21,7 +21,7 @@ public class RefuelerWorker : WorkerBrain
     private const float AddInterval = 0.35f;
 
     /// <summary>Item prefab names of the fuels the refueler uses. Fires that burn anything else are left alone.</summary>
-    private static readonly string[] FuelPrefabs = ["Resin", "Coal", "Wood", "GreydwarfEye", "Guck"];
+    private static readonly string[] FuelPrefabs = ["Resin", "Coal", "Wood", "GreydwarfEye", "Guck", "BoneFragments", "CharredBone"];
 
     private Phase _phase = Phase.Plan;
     private Component _fire;
@@ -75,6 +75,7 @@ public class RefuelerWorker : WorkerBrain
             Fireplace f => f.m_nview,
             CookingStation c => c.m_nview,
             Smelter m => m.m_nview,
+            ShieldGenerator g => g.m_nview,
             _ => null,
         };
     }
@@ -91,7 +92,8 @@ public class RefuelerWorker : WorkerBrain
 
     private static float Fuel(Component fire)
     {
-        return View(fire).GetZDO().GetFloat(ZDOVars.s_fuel);
+        float fallback = fire is ShieldGenerator shield ? shield.m_defaultFuel : 0f;
+        return View(fire).GetZDO().GetFloat(ZDOVars.s_fuel, fallback);
     }
 
     private static float MaxFuel(Component fire)
@@ -101,19 +103,56 @@ public class RefuelerWorker : WorkerBrain
             Fireplace f => f.m_maxFuel,
             CookingStation c => c.m_maxFuel,
             Smelter m => m.m_maxFuel,
+            ShieldGenerator g => g.m_maxFuel,
             _ => 0f,
         };
     }
 
-    private static ItemDrop FuelItem(Component fire)
+    /// <summary>Every item a piece accepts as fuel. Most take one; shield generators take bones or charred bones.</summary>
+    private static List<ItemDrop> FuelItems(Component fire)
     {
-        return fire switch
+        List<ItemDrop> items = [];
+        switch (fire)
         {
-            Fireplace f => f.m_fuelItem,
-            CookingStation c => c.m_fuelItem,
-            Smelter m => m.m_fuelItem,
-            _ => null,
-        };
+            case Fireplace f:
+                items.Add(f.m_fuelItem);
+                break;
+            case CookingStation c:
+                items.Add(c.m_fuelItem);
+                break;
+            case Smelter m:
+                items.Add(m.m_fuelItem);
+                break;
+            case ShieldGenerator g:
+                items.AddRange(g.m_fuelItems);
+                break;
+        }
+        _ = items.RemoveAll(item => item == null);
+        return items;
+    }
+
+    /// <summary>The fuel to use for a piece: the first one the refueler can get hold of, or failing that the first it accepts.</summary>
+    private ItemDrop FuelItem(Component fire)
+    {
+        ItemDrop first = null;
+        foreach (ItemDrop item in FuelItems(fire))
+        {
+            if (!IsAllowedFuel(item))
+            {
+                continue;
+            }
+            if (Supply(item.m_itemData.m_shared.m_name) > 0)
+            {
+                return item;
+            }
+            first ??= item;
+        }
+        return first;
+    }
+
+    private static bool IsAllowedFuel(ItemDrop item)
+    {
+        return Array.IndexOf(FuelPrefabs, item.gameObject.name.Trim()) >= 0;
     }
 
     private static string PrefabOf(Component fire)
@@ -121,7 +160,7 @@ public class RefuelerWorker : WorkerBrain
         return Utils.GetPrefabName(View(fire).gameObject);
     }
 
-    private static string FuelShared(Component fire)
+    private string FuelShared(Component fire)
     {
         return FuelItem(fire).m_itemData.m_shared.m_name;
     }
@@ -143,7 +182,7 @@ public class RefuelerWorker : WorkerBrain
     /// <summary>Whether this is a fuel-burning piece the refueler could tend, before looking at which fuel it burns.</summary>
     private static bool IsRefillable(Component fire)
     {
-        if (!IsValid(fire) || FuelItem(fire) == null)
+        if (!IsValid(fire) || FuelItems(fire).Count == 0)
         {
             return false;
         }
@@ -157,6 +196,7 @@ public class RefuelerWorker : WorkerBrain
                 && f.m_nview.GetZDO().GetInt(ZDOVars.s_state, 1) == 1,
             CookingStation c => c.m_useFuel && c.m_maxFuel > 0,
             Smelter m => m.m_maxFuel > 0 && m.m_maxOre == 0 && m.m_conversion.Count == 0,
+            ShieldGenerator g => g.m_maxFuel > 0,
             _ => false,
         };
     }
@@ -164,7 +204,6 @@ public class RefuelerWorker : WorkerBrain
     /// <summary>Fires the refueler looks after: player-built, refillable, using one of the configured fuels.</summary>
     private List<Component> FindFires()
     {
-        HashSet<string> allowed = [.. FuelPrefabs];
         List<Component> found = [];
         _fuelNames.Clear();
 
@@ -172,6 +211,7 @@ public class RefuelerWorker : WorkerBrain
         candidates.AddRange(FindObjectsByType<Fireplace>(FindObjectsSortMode.None));
         candidates.AddRange(FindObjectsByType<CookingStation>(FindObjectsSortMode.None));
         candidates.AddRange(FindObjectsByType<Smelter>(FindObjectsSortMode.None));
+        candidates.AddRange(FindObjectsByType<ShieldGenerator>(FindObjectsSortMode.None));
 
         foreach (Component fire in candidates)
         {
@@ -179,7 +219,7 @@ public class RefuelerWorker : WorkerBrain
             {
                 continue;
             }
-            if (!InJobArea(fire.transform.position) || !allowed.Contains(FuelItem(fire).gameObject.name.Trim()))
+            if (!InJobArea(fire.transform.position) || FuelItem(fire) == null)
             {
                 continue;
             }
@@ -192,7 +232,13 @@ public class RefuelerWorker : WorkerBrain
             }
 
             found.Add(fire);
-            _ = _fuelNames.Add(FuelShared(fire));
+            foreach (ItemDrop item in FuelItems(fire))
+            {
+                if (IsAllowedFuel(item))
+                {
+                    _ = _fuelNames.Add(item.m_itemData.m_shared.m_name);
+                }
+            }
         }
         return found;
     }
@@ -255,7 +301,7 @@ public class RefuelerWorker : WorkerBrain
         return true;
     }
 
-    private static string FuelName(Component fire)
+    private string FuelName(Component fire)
     {
         return FuelItem(fire).gameObject.name.ToLowerInvariant();
     }
