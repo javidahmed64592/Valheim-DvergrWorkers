@@ -154,7 +154,7 @@ public class TreeFarmerWorker : WorkerBrain
     }
 
     /// <summary>
-    /// Ground where this tree can be planted: its biome, real dirt, flat enough, above water, away from
+    /// Ground where this tree can be planted: its biome, real dirt (not paved), flat enough, above water, away from
     /// buildings and farmland, with open sky and room all round, and well clear of other trees.
     /// </summary>
     private List<Vector3> FindSpots(PlantType type, int max)
@@ -214,7 +214,7 @@ public class TreeFarmerWorker : WorkerBrain
                 {
                     continue;
                 }
-                if (NearFarmland(p) || Physics.CheckSphere(p, clearance, pieceMask))
+                if (NearPaved(p, room) || NearFarmland(p) || Physics.CheckSphere(p, clearance, pieceMask))
                 {
                     continue;
                 }
@@ -299,6 +299,20 @@ public class TreeFarmerWorker : WorkerBrain
     private static bool FlatEnough(Vector3 p, int terrainMask)
     {
         return Physics.Raycast(p + (Vector3.up * 2f), Vector3.down, out RaycastHit hit, 6f, terrainMask) && hit.normal.y >= 0.8f;
+    }
+
+    /// <summary>Stone-paved ground (the hoe's "paved" paint) is for walking on, not for trees.</summary>
+    private static bool NearPaved(Vector3 p, float room)
+    {
+        foreach (Vector3 offset in new[] { Vector3.zero, Vector3.right * room, Vector3.left * room, Vector3.forward * room, Vector3.back * room })
+        {
+            Heightmap heightmap = Heightmap.FindHeightmap(p + offset);
+            if (heightmap != null && heightmap.GetPaintMask(p + offset).b > 0.3f)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>Tilled soil is the farmer's, not a forest's.</summary>

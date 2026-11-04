@@ -255,6 +255,12 @@ public abstract class WorkerBrain : MonoBehaviour
             if (_threatened || tookDamage || restTime)
             {
                 EndRound(finished: false);
+
+                // Not the worker's fault the round was cut short: pick the work up again soon rather than a whole interval later.
+                if (!restTime)
+                {
+                    _nextRound = Time.time + WorkerConfig.ThreatRetryDelay.Value;
+                }
                 // Hand control straight back to the vanilla AI so it can defend or go to bed.
                 return false;
             }
@@ -411,12 +417,23 @@ public abstract class WorkerBrain : MonoBehaviour
             {
                 continue;
             }
-            if (Vector3.Distance(other.transform.position, transform.position) < range)
+            float distance = Vector3.Distance(other.transform.position, transform.position);
+            if (distance < range && (distance < WorkerConfig.NoticeRadius.Value || IsHuntingUs(other)))
             {
                 _threatened = true;
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// True if the enemy has picked a target on our side (this worker, a player, a tamed animal...). An enemy that
+    /// is merely nearby and has noticed nobody, like a neck in the water or a distant greyling, is left alone.
+    /// </summary>
+    private bool IsHuntingUs(Character enemy)
+    {
+        Character target = enemy.GetBaseAI() is MonsterAI monster ? monster.GetTargetCreature() : null;
+        return target != null && !BaseAI.IsEnemy(Character, target);
     }
 
     /// <summary>

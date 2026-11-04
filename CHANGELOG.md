@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- The Tree Farmer Worker now only plants trees in dirt and grass, not stone-paved paths or cultivated soil.
+- Workers are no longer spooked by every enemy within range. They only drop their task for an enemy that is close, or that is hunting them or the player, and then go back to work shortly after instead of waiting for the next task interval. New config options: `NoticeRadius` and `ThreatRetryDelay`.
+
 ## 0.11.0
 
 - The Eitr Worker now taps sap extractors in its job area: it empties them, picks up the sap that drops, tops up the eitr refineries with it, and stores any spare sap in a chest.
