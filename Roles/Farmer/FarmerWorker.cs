@@ -147,10 +147,11 @@ public class FarmerWorker : WorkerBrain
     }
 
     /// <summary>
-    /// Items lying on tilled soil in the job area that belong to the farm, e.g. dropped by a player or left over
-    /// from a harvest: anything the farmer plants or harvests. They are picked up and handled like a harvest:
-    /// seeds are planted (see <see cref="_loosePlanted"/>) and the spares returned to the input chest, while
-    /// crops such as carrots are planted only when their seeds run low and otherwise go to the output chests.
+    /// Anything the farmer plants lying on tilled soil in the job area, e.g. dropped by a player or left over from a
+    /// harvest. Everything it harvests is also something it plants, so this tidies up the whole field. Once picked
+    /// up the items follow the usual rules: seeds are planted (first, see <see cref="_loosePlanted"/>) and spares
+    /// return to the input chest, while crops such as carrots are planted when their seeds run low and otherwise go
+    /// to the output chests.
     /// </summary>
     private List<ItemDrop> LooseItems()
     {
@@ -159,13 +160,13 @@ public class FarmerWorker : WorkerBrain
         {
             return found;
         }
-        HashSet<string> farmItems = [.. Role.Produces];
+        HashSet<string> plantable = [];
         foreach (PlantType type in PlantCatalogue.Crops)
         {
-            _ = farmItems.Add(type.RequiredShared);
+            _ = plantable.Add(type.RequiredShared);
         }
 
-        foreach (ItemDrop drop in GroundItems.Loose(i => farmItems.Contains(i.m_shared.m_name)))
+        foreach (ItemDrop drop in GroundItems.Loose(i => plantable.Contains(i.m_shared.m_name)))
         {
             Vector3 p = drop.transform.position;
             if (!_looseFailed.Contains(drop) && InJobArea(p) && IsCultivatedSpot(p, out _))
@@ -970,8 +971,8 @@ public class FarmerWorker : WorkerBrain
         string shared = target.m_itemData.m_shared.m_name;
         if (GroundItems.Take(Humanoid, target) > 0)
         {
-            // Seeds jump the planting queue; crops (carrots...) are carried like a harvest, so the usual rules
-            // plant them only when their seeds run low and deliver the rest to the output chests.
+            // Seeds jump the planting queue; crops (carrots...) are just carried, so the usual rules plant them
+            // when their seeds run low and deliver the rest to the output chests.
             PlantType type = SeedCrop(shared);
             _ = _ours.Add(shared);
             if (type != null && !_loosePlanted.Contains(type))

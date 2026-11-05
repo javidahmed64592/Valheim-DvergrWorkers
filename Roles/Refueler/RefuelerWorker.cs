@@ -31,6 +31,7 @@ public class RefuelerWorker : WorkerBrain
     private int _toAdd;
     private float _timer;
     private int _pickUpTries;
+    private int _pickedUp;
     private bool _starved;
     private string _missingFuel = "";
     private int _refueledThisRound;
@@ -272,9 +273,9 @@ public class RefuelerWorker : WorkerBrain
     }
 
     /// <summary>Fuel lying on the ground right next to this fire, e.g. wood a player dropped by a hearth.</summary>
-    private int GroundAt(Component fire, string sharedName)
+    private static int GroundAt(Component fire, string sharedName)
     {
-        return GroundItems.CountNear(Role, View(fire).gameObject, sharedName);
+        return GroundItems.CountNear(View(fire).gameObject, sharedName);
     }
 
     /// <summary>All the fuel the refueler can get for this fire: carried, in chests, and dropped next to it.</summary>
@@ -491,6 +492,7 @@ public class RefuelerWorker : WorkerBrain
                 View(_fire).ClaimOwnership();
                 _phase = Phase.PickUp;
                 _pickUpTries = 0;
+                _pickedUp = 0;
                 _timer = 0.2f;
                 SetStatus("Refuelling a " + PrefabOf(_fire).Replace('_', ' '));
                 break;
@@ -523,8 +525,10 @@ public class RefuelerWorker : WorkerBrain
         }
         _timer = PickUpInterval;
 
-        int wanted = _toAdd - Logistics.Carried.CountItems(_fuelShared);
-        ItemDrop drop = wanted > 0 ? GroundItems.FirstNear(Role, View(_fire).gameObject, _fuelShared) : null;
+        // The ground pile is used before carried fuel, so fuel dropped by a fire is used up quickly; carried fuel
+        // left over goes back to the input chest at the end of the round.
+        int wanted = _toAdd - _pickedUp;
+        ItemDrop drop = wanted > 0 ? GroundItems.FirstNear(View(_fire).gameObject, _fuelShared) : null;
         if (drop == null || ++_pickUpTries > MaxPickUpTries)
         {
             _phase = Phase.Work;
@@ -532,8 +536,10 @@ public class RefuelerWorker : WorkerBrain
             return true;
         }
 
-        if (GroundItems.Take(Humanoid, drop, wanted) > 0)
+        int taken = GroundItems.Take(Humanoid, drop, wanted);
+        if (taken > 0)
         {
+            _pickedUp += taken;
             _pickUpTries = 0;
         }
         return true;

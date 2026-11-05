@@ -30,6 +30,9 @@ public abstract class MachineTenderWorker : WorkerBrain
         public string PrefabName;
         public bool Fuel;
         public int Count;
+
+        /// <summary>How many were picked up off the ground next to the machine on this visit.</summary>
+        public int PickedUp;
     }
 
     private const float FeedInterval = 0.35f;
@@ -259,13 +262,10 @@ public abstract class MachineTenderWorker : WorkerBrain
         return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
     }
 
-    /// <summary>
-    /// Inputs lying on the ground right next to the machine, e.g. ore a player dropped by a smelter. The role's own
-    /// products (the blacksmith's coal) are not counted: those are delivered to output chests, not fed back in.
-    /// </summary>
-    private int GroundCount(Smelter machine, string sharedName)
+    /// <summary>Inputs lying on the ground right next to the machine, e.g. ore a player dropped by a smelter.</summary>
+    private static int GroundCount(Smelter machine, string sharedName)
     {
-        return GroundItems.CountNear(Role, machine.m_nview.gameObject, sharedName);
+        return GroundItems.CountNear(machine.m_nview.gameObject, sharedName);
     }
 
     /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
@@ -792,7 +792,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
     /// <summary>
     /// Picks up inputs lying next to the machine, only as many as it will take this visit; the rest stays on
-    /// the ground for later rounds rather than being carried around.
+    /// the ground for later rounds rather than being carried around. These are fed in before anything carried.
     /// </summary>
     private void PickUpOne()
     {
@@ -800,19 +800,23 @@ public abstract class MachineTenderWorker : WorkerBrain
 
         foreach (Need need in _needs)
         {
-            int wanted = need.Count - Logistics.Carried.CountItems(need.SharedName);
+            // The ground pile is used before anything carried (such as coal fresh from the kiln, which then goes to
+            // an output chest instead), so items players drop by a machine are used up quickly and do not linger.
+            int wanted = need.Count - need.PickedUp;
             if (wanted <= 0)
             {
                 continue;
             }
 
-            ItemDrop drop = GroundItems.FirstNear(Role, _machine.m_nview.gameObject, need.SharedName);
+            ItemDrop drop = GroundItems.FirstNear(_machine.m_nview.gameObject, need.SharedName);
             if (drop == null || ++_collectTries > MaxCollectTries)
             {
                 continue;
             }
-            if (GroundItems.Take(Humanoid, drop, wanted) > 0)
+            int taken = GroundItems.Take(Humanoid, drop, wanted);
+            if (taken > 0)
             {
+                need.PickedUp += taken;
                 _collectTries = 0;
             }
             // One drop per tick, like a player picking things up.

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 
-using DvergrWorkers.Core;
 using DvergrWorkers.Movement;
 
 using UnityEngine;
@@ -10,20 +9,12 @@ namespace DvergrWorkers.Logistics;
 
 /// <summary>
 /// Items lying loose on the ground that a worker may use instead of fetching from a chest, e.g. ore dropped next
-/// to a smelter or seeds dropped on tilled soil. A worker never takes one of its own role's products from the
-/// ground as an input (see <see cref="IsInputFor"/>): the blacksmith leaves coal lying by a smelter alone, for
-/// example, since coal is something it makes and delivers, not something the player dropped for it.
+/// to a smelter or seeds dropped on tilled soil.
 /// </summary>
 internal static class GroundItems
 {
     /// <summary>No machine or fire is anywhere near this big, so drops farther from its centre skip the collider query.</summary>
     private const float SearchSlack = 6f;
-
-    /// <summary>Whether a worker of this role may use the item from the ground as an input: anything but its own products.</summary>
-    public static bool IsInputFor(WorkerRole role, string sharedName)
-    {
-        return !role.Produces.Contains(sharedName);
-    }
 
     /// <summary>Loose drops of this item. Items placed as build pieces (decorations) are part of the base, not supplies.</summary>
     public static IEnumerable<ItemDrop> Loose(Func<ItemDrop.ItemData, bool> match)
@@ -39,13 +30,12 @@ internal static class GroundItems
 
     /// <summary>
     /// Drops of this item within <see cref="WorkerConfig.GroundPickupRadius"/> of the edge of a piece (a machine,
-    /// a fire...), for a worker of this role to use as an input. Nothing when the setting is 0 or the item is one
-    /// of the role's own products.
+    /// a fire...). Nothing when the setting is 0.
     /// </summary>
-    public static IEnumerable<ItemDrop> Near(WorkerRole role, GameObject piece, string sharedName)
+    public static IEnumerable<ItemDrop> Near(GameObject piece, string sharedName)
     {
         float radius = WorkerConfig.GroundPickupRadius.Value;
-        if (radius <= 0f || piece == null || !IsInputFor(role, sharedName))
+        if (radius <= 0f || piece == null)
         {
             yield break;
         }
@@ -69,10 +59,10 @@ internal static class GroundItems
         }
     }
 
-    public static int CountNear(WorkerRole role, GameObject piece, string sharedName)
+    public static int CountNear(GameObject piece, string sharedName)
     {
         int total = 0;
-        foreach (ItemDrop drop in Near(role, piece, sharedName))
+        foreach (ItemDrop drop in Near(piece, sharedName))
         {
             total += drop.m_itemData.m_stack;
         }
@@ -80,9 +70,9 @@ internal static class GroundItems
     }
 
     /// <summary>The first drop of this item near the piece, or null.</summary>
-    public static ItemDrop FirstNear(WorkerRole role, GameObject piece, string sharedName)
+    public static ItemDrop FirstNear(GameObject piece, string sharedName)
     {
-        foreach (ItemDrop drop in Near(role, piece, sharedName))
+        foreach (ItemDrop drop in Near(piece, sharedName))
         {
             return drop;
         }

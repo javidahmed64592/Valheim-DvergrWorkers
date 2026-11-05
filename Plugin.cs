@@ -119,7 +119,7 @@ internal static class WorkerConfig
         TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
             "Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched.");
         GroundPickupRadius = config.Bind("Workers", "GroundPickupRadius", 2f,
-            new ConfigDescription("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.",
+            new ConfigDescription("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.",
                 new AcceptableValueRange<float>(0f, 6f)));
         InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
             new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
@@ -138,7 +138,7 @@ internal static class WorkerConfig
         PlantsPerTrip = config.Bind(WorkerRoles.Farmer.Name, "PlantsPerTrip", 8,
             new ConfigDescription("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
         FarmerPlantsLooseSeeds = config.Bind(WorkerRoles.Farmer.Name, "PlantLooseSeeds", true,
-            "The farmer tidies up seeds and crops lying on tilled soil in its job area, handling them like a harvest. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
+            "The farmer tidies up seeds and crops lying on tilled soil in its job area. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
         TreeFarmerPlantsLooseSeeds = config.Bind(WorkerRoles.TreeFarmer.Name, "PlantLooseSeeds", true,
             "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area wherever it would plant a tree itself, and plants them on that spot.");
         MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
