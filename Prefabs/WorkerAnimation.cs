@@ -34,6 +34,9 @@ internal sealed class WorkerAnimation
 
     private static Dictionary<string, AnimationClip> _playerClips;
 
+    /// <summary>Whether the swing slot holds the player's use animation (roles without a swinging tool).</summary>
+    private bool _swingIsUse;
+
     public WorkerAnimation(Character character, WorkerRole role)
     {
         _character = character;
@@ -76,6 +79,7 @@ internal sealed class WorkerAnimation
         }
         overrides.ApplyOverrides(pairs);
         animator.runtimeAnimatorController = overrides;
+        _swingIsUse = clipName == DefaultClip;
     }
 
     private static Dictionary<string, AnimationClip> PlayerClips()
@@ -104,5 +108,18 @@ internal sealed class WorkerAnimation
     public void PlaySwing()
     {
         _character.m_zanim.SetTrigger(SwingTrigger);
+    }
+
+    /// <summary>
+    /// Plays the player's use animation for picking an item up, the same one used to fill a machine. The Dvergr has a
+    /// single slot for the player's clips, so roles whose slot holds a tool swing (axe, hoe...) play nothing rather
+    /// than swinging their tool at the item.
+    /// </summary>
+    public void PlayPickup()
+    {
+        if (_swingIsUse)
+        {
+            PlaySwing();
+        }
     }
 }

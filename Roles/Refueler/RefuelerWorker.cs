@@ -541,6 +541,7 @@ public class RefuelerWorker : WorkerBrain
         {
             _pickedUp += taken;
             _pickUpTries = 0;
+            Animation.PlayPickup();
         }
         return true;
     }

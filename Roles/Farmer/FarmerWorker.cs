@@ -931,6 +931,7 @@ public class FarmerWorker : WorkerBrain
         {
             _ = _ours.Add(shared);
             _collectTries = 0;
+            Animation.PlayPickup();
         }
         return true;
     }
@@ -980,6 +981,7 @@ public class FarmerWorker : WorkerBrain
                 _loosePlanted.Add(type);
             }
             _collectTries = 0;
+            Animation.PlayPickup();
         }
         return true;
     }

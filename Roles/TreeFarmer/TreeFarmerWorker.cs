@@ -646,6 +646,7 @@ public class TreeFarmerWorker : WorkerBrain
         {
             _looseSeed = null;
             _loosePlanted.Add((_looseType, origin));
+            Animation.PlayPickup();
             _phase = Phase.Plan;
         }
         return true;

@@ -787,6 +787,7 @@ public abstract class MachineTenderWorker : WorkerBrain
         {
             _handled += stack;
             _collectTries = 0;
+            Animation.PlayPickup();
         }
     }
 
@@ -818,6 +819,7 @@ public abstract class MachineTenderWorker : WorkerBrain
             {
                 need.PickedUp += taken;
                 _collectTries = 0;
+                Animation.PlayPickup();
             }
             // One drop per tick, like a player picking things up.
             return;

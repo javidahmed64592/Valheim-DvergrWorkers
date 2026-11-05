@@ -242,6 +242,7 @@ public class EitrWorker : MachineTenderWorker
         if (Humanoid.Pickup(target.gameObject, false, false))
         {
             _collectTries = 0;
+            Animation.PlayPickup();
         }
     }
 
