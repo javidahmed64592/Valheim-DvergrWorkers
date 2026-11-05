@@ -146,24 +146,26 @@ public class FarmerWorker : WorkerBrain
         return null;
     }
 
-    /// <summary>Crop seeds lying on tilled soil in the job area, e.g. dropped by a player or left over from a harvest.</summary>
-    private List<ItemDrop> LooseSeeds()
+    /// <summary>
+    /// Items lying on tilled soil in the job area that belong to the farm, e.g. dropped by a player or left over
+    /// from a harvest: anything the farmer plants or harvests. They are picked up and handled like a harvest:
+    /// seeds are planted (see <see cref="_loosePlanted"/>) and the spares returned to the input chest, while
+    /// crops such as carrots are planted only when their seeds run low and otherwise go to the output chests.
+    /// </summary>
+    private List<ItemDrop> LooseItems()
     {
         List<ItemDrop> found = [];
         if (!WorkerConfig.FarmerPlantsLooseSeeds.Value)
         {
             return found;
         }
-        HashSet<string> seeds = [];
+        HashSet<string> farmItems = [.. Role.Produces];
         foreach (PlantType type in PlantCatalogue.Crops)
         {
-            if (SeedCrop(type.RequiredShared) != null)
-            {
-                _ = seeds.Add(type.RequiredShared);
-            }
+            _ = farmItems.Add(type.RequiredShared);
         }
 
-        foreach (ItemDrop drop in GroundItems.Loose(i => seeds.Contains(i.m_shared.m_name)))
+        foreach (ItemDrop drop in GroundItems.Loose(i => farmItems.Contains(i.m_shared.m_name)))
         {
             Vector3 p = drop.transform.position;
             if (!_looseFailed.Contains(drop) && InJobArea(p) && IsCultivatedSpot(p, out _))
@@ -174,11 +176,11 @@ public class FarmerWorker : WorkerBrain
         return found;
     }
 
-    private ItemDrop NearestLooseSeed()
+    private ItemDrop NearestLooseItem()
     {
         ItemDrop best = null;
         float bestDist = float.MaxValue;
-        foreach (ItemDrop drop in LooseSeeds())
+        foreach (ItemDrop drop in LooseItems())
         {
             float d = Vector3.Distance(drop.transform.position, transform.position);
             if (d < bestDist)
@@ -468,7 +470,7 @@ public class FarmerWorker : WorkerBrain
         }
 
         bool tilled = false;
-        bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds() || LooseSeeds().Count > 0;
+        bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds() || LooseItems().Count > 0;
         if (!work)
         {
             _reachChecksLeft = MaxReachChecks;
@@ -569,17 +571,17 @@ public class FarmerWorker : WorkerBrain
         }
         _batchSpots.Clear();
 
-        // Tidy up seeds lying on the soil first; they are then planted before anything else.
-        ItemDrop loose = NearestLooseSeed();
+        // Tidy up seeds and crops lying on the soil first; the seeds are then planted before anything else.
+        ItemDrop loose = NearestLooseItem();
         if (loose != null)
         {
             _looseTarget = loose;
             Vector3 at = loose.transform.position;
-            if (Navigator.Begin("loose seeds", _ => at, rememberFailure: true))
+            if (Navigator.Begin("loose items", _ => at, rememberFailure: true))
             {
                 _phase = Phase.Walk;
                 _nextAfterWalk = Phase.Gather;
-                SetStatus("Picking up seeds from the soil");
+                SetStatus("Tidying up the field");
             }
             else
             {
@@ -932,7 +934,7 @@ public class FarmerWorker : WorkerBrain
         return true;
     }
 
-    /// <summary>Picks up the loose seeds walked to, and any others lying on the soil close by.</summary>
+    /// <summary>Picks up the loose seeds or crops walked to, and any others lying on the soil close by.</summary>
     private bool Gather(float dt)
     {
         Ai.StopMoving();
@@ -944,7 +946,7 @@ public class FarmerWorker : WorkerBrain
         _timer = CollectInterval;
 
         ItemDrop target = null;
-        foreach (ItemDrop drop in LooseSeeds())
+        foreach (ItemDrop drop in LooseItems())
         {
             if (Vector3.Distance(drop.transform.position, _collectPos) < GatherRadius)
             {
@@ -968,6 +970,8 @@ public class FarmerWorker : WorkerBrain
         string shared = target.m_itemData.m_shared.m_name;
         if (GroundItems.Take(Humanoid, target) > 0)
         {
+            // Seeds jump the planting queue; crops (carrots...) are carried like a harvest, so the usual rules
+            // plant them only when their seeds run low and deliver the rest to the output chests.
             PlantType type = SeedCrop(shared);
             _ = _ours.Add(shared);
             if (type != null && !_loosePlanted.Contains(type))

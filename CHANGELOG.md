@@ -4,8 +4,8 @@
 
 Workers now tidy up and use items lying on the ground, so you no longer have to carry everything to the input chest.
 
-- The Blacksmith, Barley, Flax and Eitr Workers use input items lying right next to their machines, e.g. ore dropped by a smelter. The Refueler Worker does the same with fuel lying next to the fire it is refuelling. They only pick up as many as the machine or fire will take on that visit; the rest stays on the ground for later. New config option: `GroundPickupRadius` (metres from the machine's or fire's edge, default 2, 0 turns it off). Keep it small so workers leave alone items dropped for other reasons, like wood while building.
-- The Farmer Worker picks up crop seeds lying on tilled soil in its job area and plants those crops before anything else. Seeds it has no room to plant go to the input chest. New config option: `[Farmer] PlantLooseSeeds`.
+- The Blacksmith, Barley, Flax and Eitr Workers use input items lying right next to their machines, e.g. ore dropped by a smelter. The Refueler Worker does the same with fuel lying next to the fire it is refuelling. They only pick up as many as the machine or fire will take on that visit; the rest stays on the ground for later. Workers never use their own products from the ground as inputs, e.g. the blacksmith leaves coal lying by a smelter alone. New config option: `GroundPickupRadius` (metres from the machine's or fire's edge, default 2, 0 turns it off). Keep it small so workers leave alone items dropped for other reasons, like wood while building.
+- The Farmer Worker tidies up seeds and crops lying on tilled soil in its job area and handles them like a harvest: seeds are planted before anything else and spares go to the input chest, while crops such as carrots and turnips are planted when their seeds run low and otherwise go to the output chest. New config option: `[Farmer] PlantLooseSeeds`.
 - The Tree Farmer Worker picks up tree seeds, cones and acorns lying anywhere in its job area that it would plant a tree itself, and plants them on that spot. Seeds on paths, by buildings or on farmland are left alone. New config option: `[TreeFarmer] PlantLooseSeeds`.
 
 ## 0.11.2

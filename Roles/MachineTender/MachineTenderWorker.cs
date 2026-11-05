@@ -259,10 +259,13 @@ public abstract class MachineTenderWorker : WorkerBrain
         return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
     }
 
-    /// <summary>Inputs lying on the ground right next to the machine, e.g. ore a player dropped by a smelter.</summary>
-    private static int GroundCount(Smelter machine, string sharedName)
+    /// <summary>
+    /// Inputs lying on the ground right next to the machine, e.g. ore a player dropped by a smelter. The role's own
+    /// products (the blacksmith's coal) are not counted: those are delivered to output chests, not fed back in.
+    /// </summary>
+    private int GroundCount(Smelter machine, string sharedName)
     {
-        return GroundItems.CountNear(machine.m_nview.gameObject, sharedName);
+        return GroundItems.CountNear(Role, machine.m_nview.gameObject, sharedName);
     }
 
     /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
@@ -803,7 +806,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 continue;
             }
 
-            ItemDrop drop = GroundItems.FirstNear(_machine.m_nview.gameObject, need.SharedName);
+            ItemDrop drop = GroundItems.FirstNear(Role, _machine.m_nview.gameObject, need.SharedName);
             if (drop == null || ++_collectTries > MaxCollectTries)
             {
                 continue;

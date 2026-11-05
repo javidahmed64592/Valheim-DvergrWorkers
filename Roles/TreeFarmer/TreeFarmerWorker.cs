@@ -345,7 +345,7 @@ public class TreeFarmerWorker : WorkerBrain
 
         HashSet<string> names = PlantCatalogue.TreeSeedNames;
         List<ItemDrop> candidates = [];
-        foreach (ItemDrop drop in GroundItems.Loose(i => names.Contains(i.m_shared.m_name)))
+        foreach (ItemDrop drop in GroundItems.Loose(i => names.Contains(i.m_shared.m_name) && GroundItems.IsInputFor(Role, i.m_shared.m_name)))
         {
             if (!_looseFailed.Contains(drop) && InJobArea(drop.transform.position))
             {

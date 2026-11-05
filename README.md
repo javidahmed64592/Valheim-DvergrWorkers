@@ -88,10 +88,11 @@ Workers also tidy up and use items lying on the ground, so you do not always hav
 
 - Machine workers (blacksmith, barley, flax and eitr) use input items dropped right next to one of their machines, e.g. ore beside a smelter.
 - The refueler uses fuel dropped right next to the fire it is refuelling.
-- The farmer picks up crop seeds lying on its tilled soil and plants them first.
+- The farmer tidies up seeds and crops lying on its tilled soil as if it had just harvested them: seeds are planted first, and crops are planted when seeds run low or go to the output chest.
 - The tree farmer plants tree seeds, cones and acorns where they lie, if that is somewhere it would plant a tree itself.
 
 Machine workers and the refueler only use items within a small, configurable distance of the machine or fire, and only take as many as it needs, so things dropped elsewhere around the base are left alone.
+Workers never use their own products from the ground as inputs; the blacksmith will not feed coal lying by a smelter back in, for example.
 
 Workers also pass items along to each other.
 If another worker nearby makes an item, a worker that needs it will take it from the output chests.

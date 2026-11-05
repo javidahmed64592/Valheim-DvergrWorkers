@@ -272,9 +272,9 @@ public class RefuelerWorker : WorkerBrain
     }
 
     /// <summary>Fuel lying on the ground right next to this fire, e.g. wood a player dropped by a hearth.</summary>
-    private static int GroundAt(Component fire, string sharedName)
+    private int GroundAt(Component fire, string sharedName)
     {
-        return GroundItems.CountNear(View(fire).gameObject, sharedName);
+        return GroundItems.CountNear(Role, View(fire).gameObject, sharedName);
     }
 
     /// <summary>All the fuel the refueler can get for this fire: carried, in chests, and dropped next to it.</summary>
@@ -524,7 +524,7 @@ public class RefuelerWorker : WorkerBrain
         _timer = PickUpInterval;
 
         int wanted = _toAdd - Logistics.Carried.CountItems(_fuelShared);
-        ItemDrop drop = wanted > 0 ? GroundItems.FirstNear(View(_fire).gameObject, _fuelShared) : null;
+        ItemDrop drop = wanted > 0 ? GroundItems.FirstNear(Role, View(_fire).gameObject, _fuelShared) : null;
         if (drop == null || ++_pickUpTries > MaxPickUpTries)
         {
             _phase = Phase.Work;

@@ -138,7 +138,7 @@ internal static class WorkerConfig
         PlantsPerTrip = config.Bind(WorkerRoles.Farmer.Name, "PlantsPerTrip", 8,
             new ConfigDescription("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
         FarmerPlantsLooseSeeds = config.Bind(WorkerRoles.Farmer.Name, "PlantLooseSeeds", true,
-            "The farmer picks up crop seeds lying on tilled soil in its job area and plants them before anything else. Seeds it has no room to plant go to the input chest.");
+            "The farmer tidies up seeds and crops lying on tilled soil in its job area, handling them like a harvest. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
         TreeFarmerPlantsLooseSeeds = config.Bind(WorkerRoles.TreeFarmer.Name, "PlantLooseSeeds", true,
             "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area wherever it would plant a tree itself, and plants them on that spot.");
         MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
