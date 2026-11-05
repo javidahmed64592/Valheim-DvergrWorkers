@@ -21,7 +21,7 @@ namespace DvergrWorkers.Roles.MachineTender;
 public abstract class MachineTenderWorker : WorkerBrain
 {
     private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Work = 3, Deposit = 4, Gather = 5 }
-    private enum Stage { Empty = 0, Collect = 1, Feed = 2 }
+    private enum Stage { Empty = 0, Collect = 1, PickUp = 2, Feed = 3 }
 
     /// <summary>Something to put into a machine: coal for its fuel slot, or one of the items it can process.</summary>
     private sealed class Need
@@ -259,6 +259,12 @@ public abstract class MachineTenderWorker : WorkerBrain
         return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
     }
 
+    /// <summary>Inputs lying on the ground right next to the machine, e.g. ore a player dropped by a smelter.</summary>
+    private static int GroundCount(Smelter machine, string sharedName)
+    {
+        return GroundItems.CountNear(machine.m_nview.gameObject, sharedName);
+    }
+
     /// <summary>Works out what a machine can take right now, limited by what the worker can get hold of.</summary>
     /// <param name="fuelUsers">
     /// How many machines still want each kind of fuel this round. Scarce fuel is split between them
@@ -280,9 +286,10 @@ public abstract class MachineTenderWorker : WorkerBrain
                 {
                     users = Math.Max(1, counted);
                 }
+                // Chest stock is shared between the machines; fuel dropped next to this one is all for it.
+                supply = Math.Min(supply, (supply + users - 1) / users) + GroundCount(machine, shared);
                 if (supply > 0)
                 {
-                    supply = Math.Min(supply, (supply + users - 1) / users);
                     needs.Add(new Need
                     {
                         SharedName = shared,
@@ -315,7 +322,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 }
 
                 string shared = conversion.m_from.m_itemData.m_shared.m_name;
-                int take = Math.Min(room, Supply(shared));
+                int take = Math.Min(room, Supply(shared) + GroundCount(machine, shared));
                 if (take > 0)
                 {
                     any = true;
@@ -407,7 +414,8 @@ public abstract class MachineTenderWorker : WorkerBrain
                 lines.Add(shared + " carried " + Logistics.Carried.CountItems(shared)
                     + ", input " + Logistics.CountInChests(ChestKind.Input, Match)
                     + ", output " + Logistics.CountInChests(ChestKind.Output, Match)
-                    + ", usable " + Logistics.CountAvailable(Match));
+                    + ", usable " + Logistics.CountAvailable(Match)
+                    + ", on the ground " + GroundCount(machine, shared));
             }
             DvergrWorkersPlugin.Log.LogInfo(Role.Name + " has nothing to do at " + PrefabOf(machine) + " (queue "
                 + machine.GetQueueSize() + "/" + machine.m_maxOre + "): " + string.Join("; ", lines));
@@ -626,7 +634,8 @@ public abstract class MachineTenderWorker : WorkerBrain
                 return i.m_shared.m_name == need.SharedName;
             }
 
-            int missing = need.Count - Logistics.Carried.CountItems(need.SharedName);
+            // Whatever lies next to the machine is picked up there, so only the rest comes from a chest.
+            int missing = need.Count - Usable(need.SharedName);
 
             if (missing > 0 && Logistics.BeginFetchAny(Match, missing))
             {
@@ -643,10 +652,10 @@ public abstract class MachineTenderWorker : WorkerBrain
     private bool BeginWalk()
     {
         // Only what could actually be carried over is worth the trip.
-        _ = _needs.RemoveAll(n => Logistics.Carried.CountItems(n.SharedName) == 0);
+        _ = _needs.RemoveAll(n => Usable(n.SharedName) == 0);
         foreach (Need need in _needs)
         {
-            need.Count = Math.Min(need.Count, Logistics.Carried.CountItems(need.SharedName));
+            need.Count = Math.Min(need.Count, Usable(need.SharedName));
         }
 
         if (_needs.Count == 0 && !_pendingOutput)
@@ -697,6 +706,12 @@ public abstract class MachineTenderWorker : WorkerBrain
         return true;
     }
 
+    /// <summary>What the worker can put into the current machine: what it carries plus what lies next to the machine.</summary>
+    private int Usable(string sharedName)
+    {
+        return Logistics.Carried.CountItems(sharedName) + GroundCount(_machine, sharedName);
+    }
+
     // ---------------------------------------------------------------- tending a machine
 
     private bool Work(float dt)
@@ -731,6 +746,10 @@ public abstract class MachineTenderWorker : WorkerBrain
                 CollectOne();
                 break;
 
+            case Stage.PickUp:
+                PickUpOne();
+                break;
+
             case Stage.Feed:
                 FeedOne();
                 break;
@@ -751,7 +770,8 @@ public abstract class MachineTenderWorker : WorkerBrain
 
         if (target == null || ++_collectTries > MaxCollectTries)
         {
-            _stage = Stage.Feed;
+            _stage = Stage.PickUp;
+            _collectTries = 0;
             _timer = 0.1f;
             return;
         }
@@ -765,6 +785,39 @@ public abstract class MachineTenderWorker : WorkerBrain
             _handled += stack;
             _collectTries = 0;
         }
+    }
+
+    /// <summary>
+    /// Picks up inputs lying next to the machine, only as many as it will take this visit; the rest stays on
+    /// the ground for later rounds rather than being carried around.
+    /// </summary>
+    private void PickUpOne()
+    {
+        _timer = CollectInterval;
+
+        foreach (Need need in _needs)
+        {
+            int wanted = need.Count - Logistics.Carried.CountItems(need.SharedName);
+            if (wanted <= 0)
+            {
+                continue;
+            }
+
+            ItemDrop drop = GroundItems.FirstNear(_machine.m_nview.gameObject, need.SharedName);
+            if (drop == null || ++_collectTries > MaxCollectTries)
+            {
+                continue;
+            }
+            if (GroundItems.Take(Humanoid, drop, wanted) > 0)
+            {
+                _collectTries = 0;
+            }
+            // One drop per tick, like a player picking things up.
+            return;
+        }
+
+        _stage = Stage.Feed;
+        _timer = 0.1f;
     }
 
     private void FeedOne()

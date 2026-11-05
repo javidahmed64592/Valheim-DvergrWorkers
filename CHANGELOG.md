@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0
+
+Workers now tidy up and use items lying on the ground, so you no longer have to carry everything to the input chest.
+
+- The Blacksmith, Barley, Flax and Eitr Workers use input items lying right next to their machines, e.g. ore dropped by a smelter. The Refueler Worker does the same with fuel lying next to the fire it is refuelling. They only pick up as many as the machine or fire will take on that visit; the rest stays on the ground for later. New config option: `GroundPickupRadius` (metres from the machine's or fire's edge, default 2, 0 turns it off). Keep it small so workers leave alone items dropped for other reasons, like wood while building.
+- The Farmer Worker picks up crop seeds lying on tilled soil in its job area and plants those crops before anything else. Seeds it has no room to plant go to the input chest. New config option: `[Farmer] PlantLooseSeeds`.
+- The Tree Farmer Worker picks up tree seeds, cones and acorns lying anywhere in its job area that it would plant a tree itself, and plants them on that spot. Seeds on paths, by buildings or on farmland are left alone. New config option: `[TreeFarmer] PlantLooseSeeds`.
+
 ## 0.11.2
 
 - Fixed the game freezing for a few seconds at a time with several workers out. The main causes were workers searching for a spot to stand next to targets they could not reach (such as a damaged roof), and the bed searching the whole world for its worker in a single frame. Path searches are now capped, unreachable targets are remembered instead of being retried every round, and the bed's search is spread over several frames.

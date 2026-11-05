@@ -84,6 +84,15 @@ This keeps your chests organised.
 Workers that need chests will not begin their jobs until they are built within the job radius.
 If the output chests are full, the worker stops and the bed's hover text says so.
 
+Workers also tidy up and use items lying on the ground, so you do not always have to visit the input chest:
+
+- Machine workers (blacksmith, barley, flax and eitr) use input items dropped right next to one of their machines, e.g. ore beside a smelter.
+- The refueler uses fuel dropped right next to the fire it is refuelling.
+- The farmer picks up crop seeds lying on its tilled soil and plants them first.
+- The tree farmer plants tree seeds, cones and acorns where they lie, if that is somewhere it would plant a tree itself.
+
+Machine workers and the refueler only use items within a small, configurable distance of the machine or fire, and only take as many as it needs, so things dropped elsewhere around the base are left alone.
+
 Workers also pass items along to each other.
 If another worker nearby makes an item, a worker that needs it will take it from the output chests.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
@@ -105,7 +114,7 @@ For example, the farmer can keep replanting barley while the barley worker mills
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
-You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, and whether workers take each other's items from output chests.
+You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, whether workers take each other's items from output chests, and how close to a machine dropped items must be for machine workers to use them.
 
 ## Known Limitations
 

@@ -16,9 +16,11 @@ namespace DvergrWorkers.Roles.Refueler;
 /// </summary>
 public class RefuelerWorker : WorkerBrain
 {
-    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Work = 3, Return = 4 }
+    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Work = 3, Return = 4, PickUp = 5 }
 
     private const float AddInterval = 0.35f;
+    private const float PickUpInterval = 0.3f;
+    private const int MaxPickUpTries = 12;
 
     /// <summary>Item prefab names of the fuels the refueler uses. Fires that burn anything else are left alone.</summary>
     private static readonly string[] FuelPrefabs = ["Resin", "Coal", "Wood", "GreydwarfEye", "Guck", "BoneFragments", "CharredBone"];
@@ -28,6 +30,7 @@ public class RefuelerWorker : WorkerBrain
     private string _fuelShared;
     private int _toAdd;
     private float _timer;
+    private int _pickUpTries;
     private bool _starved;
     private string _missingFuel = "";
     private int _refueledThisRound;
@@ -161,7 +164,7 @@ public class RefuelerWorker : WorkerBrain
             {
                 continue;
             }
-            if (Supply(item.m_itemData.m_shared.m_name) > 0)
+            if (SupplyAt(fire, item.m_itemData.m_shared.m_name) > 0)
             {
                 return item;
             }
@@ -268,6 +271,18 @@ public class RefuelerWorker : WorkerBrain
         return Logistics.Carried.CountItems(sharedName) + Logistics.AvailableTo(sharedName);
     }
 
+    /// <summary>Fuel lying on the ground right next to this fire, e.g. wood a player dropped by a hearth.</summary>
+    private static int GroundAt(Component fire, string sharedName)
+    {
+        return GroundItems.CountNear(View(fire).gameObject, sharedName);
+    }
+
+    /// <summary>All the fuel the refueler can get for this fire: carried, in chests, and dropped next to it.</summary>
+    private int SupplyAt(Component fire, string sharedName)
+    {
+        return Supply(sharedName) + GroundAt(fire, sharedName);
+    }
+
     private bool CarryingFuel()
     {
         foreach (ItemDrop.ItemData item in Logistics.Carried.GetAllItems())
@@ -299,7 +314,7 @@ public class RefuelerWorker : WorkerBrain
             {
                 continue;
             }
-            if (Supply(FuelShared(fire)) > 0)
+            if (SupplyAt(fire, FuelShared(fire)) > 0)
             {
                 work = true;
                 break;
@@ -335,6 +350,7 @@ public class RefuelerWorker : WorkerBrain
             Phase.Walk => Walk(dt),
             Phase.Work => Work(dt),
             Phase.Return => Return(dt),
+            Phase.PickUp => PickUp(dt),
             _ => false,
         };
     }
@@ -352,7 +368,7 @@ public class RefuelerWorker : WorkerBrain
             {
                 continue;
             }
-            if (Supply(FuelShared(fire)) <= 0)
+            if (SupplyAt(fire, FuelShared(fire)) <= 0)
             {
                 _starved = true;
                 _missingFuel = FuelName(fire);
@@ -394,8 +410,10 @@ public class RefuelerWorker : WorkerBrain
                 wanted += Math.Max(0, Room(fire));
             }
         }
-        int missing = Math.Min(wanted, Supply(_fuelShared)) - Logistics.Carried.CountItems(_fuelShared);
-        _toAdd = Math.Min(Room(best), Logistics.Carried.CountItems(_fuelShared));
+        // Fuel dropped next to this fire is picked up there, so it need not come from a chest.
+        int ground = GroundAt(best, _fuelShared);
+        int missing = Math.Min(wanted - ground, Supply(_fuelShared)) - Logistics.Carried.CountItems(_fuelShared);
+        _toAdd = Math.Min(Room(best), Usable());
 
         if (missing > 0)
         {
@@ -422,8 +440,14 @@ public class RefuelerWorker : WorkerBrain
                 break;
         }
 
-        _toAdd = IsValid(_fire) ? Math.Min(Room(_fire), Logistics.Carried.CountItems(_fuelShared)) : 0;
+        _toAdd = IsValid(_fire) ? Math.Min(Room(_fire), Usable()) : 0;
         return BeginWalk();
+    }
+
+    /// <summary>Fuel for the current fire: what the worker carries plus what lies next to the fire.</summary>
+    private int Usable()
+    {
+        return Logistics.Carried.CountItems(_fuelShared) + GroundAt(_fire, _fuelShared);
     }
 
     private bool BeginWalk()
@@ -465,7 +489,8 @@ public class RefuelerWorker : WorkerBrain
             case NavResult.InReach:
             case NavResult.CloseEnough:
                 View(_fire).ClaimOwnership();
-                _phase = Phase.Work;
+                _phase = Phase.PickUp;
+                _pickUpTries = 0;
                 _timer = 0.2f;
                 SetStatus("Refuelling a " + PrefabOf(_fire).Replace('_', ' '));
                 break;
@@ -474,6 +499,42 @@ public class RefuelerWorker : WorkerBrain
                 _ = _unreachable.Add(_fire);
                 _phase = Phase.Plan;
                 break;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Picks up fuel lying next to the fire, only as much as this fire takes; the rest stays on the ground for
+    /// next time rather than being carried off.
+    /// </summary>
+    private bool PickUp(float dt)
+    {
+        if (!IsValid(_fire))
+        {
+            _phase = Phase.Plan;
+            return true;
+        }
+
+        Ai.StopMoving();
+        _timer -= dt;
+        if (_timer > 0f)
+        {
+            return true;
+        }
+        _timer = PickUpInterval;
+
+        int wanted = _toAdd - Logistics.Carried.CountItems(_fuelShared);
+        ItemDrop drop = wanted > 0 ? GroundItems.FirstNear(View(_fire).gameObject, _fuelShared) : null;
+        if (drop == null || ++_pickUpTries > MaxPickUpTries)
+        {
+            _phase = Phase.Work;
+            _timer = 0.1f;
+            return true;
+        }
+
+        if (GroundItems.Take(Humanoid, drop, wanted) > 0)
+        {
+            _pickUpTries = 0;
         }
         return true;
     }

@@ -18,7 +18,7 @@ namespace DvergrWorkers.Roles.Farmer;
 /// </summary>
 public class FarmerWorker : WorkerBrain
 {
-    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Plant = 3, Harvest = 4, Collect = 5, Deposit = 6 }
+    private enum Phase { Plan = 0, Fetch = 1, Walk = 2, Plant = 3, Harvest = 4, Collect = 5, Deposit = 6, Gather = 7 }
 
     private const float PlantTime = 0.6f;
 
@@ -36,6 +36,9 @@ public class FarmerWorker : WorkerBrain
     private const int FullSlots = 2;
     private const float FineStep = 0.5f;
     private const float CoarseStep = 1f;
+
+    /// <summary>Loose seeds this close to the one walked to are picked up on the same stop.</summary>
+    private const float GatherRadius = 2.5f;
 
     private Phase _phase = Phase.Plan;
     private PlantType _batchType;
@@ -56,6 +59,11 @@ public class FarmerWorker : WorkerBrain
     private readonly HashSet<string> _ours = [];
     private readonly Dictionary<string, int> _plantedByFamily = [];
     private readonly List<Occupied> _plantedSpots = [];
+    private ItemDrop _looseTarget;
+    private readonly HashSet<ItemDrop> _looseFailed = [];
+
+    /// <summary>Crops whose seeds were picked up off the soil this round: they are planted before anything else.</summary>
+    private readonly List<PlantType> _loosePlanted = [];
 
     internal override WorkerRole Role => WorkerRoles.Farmer;
 
@@ -119,6 +127,67 @@ public class FarmerWorker : WorkerBrain
     {
         heightmap = Heightmap.FindHeightmap(p);
         return heightmap != null && heightmap.IsCultivated(p);
+    }
+
+    /// <summary>The crop a seed item grows, if it is a seed the farmer plants (not a raw ingredient like a carrot).</summary>
+    private static PlantType SeedCrop(string sharedName)
+    {
+        if (!PlantCatalogue.IsSeedName(sharedName))
+        {
+            return null;
+        }
+        foreach (PlantType type in PlantCatalogue.Crops)
+        {
+            if (!type.Raw && type.RequiredShared == sharedName)
+            {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Crop seeds lying on tilled soil in the job area, e.g. dropped by a player or left over from a harvest.</summary>
+    private List<ItemDrop> LooseSeeds()
+    {
+        List<ItemDrop> found = [];
+        if (!WorkerConfig.FarmerPlantsLooseSeeds.Value)
+        {
+            return found;
+        }
+        HashSet<string> seeds = [];
+        foreach (PlantType type in PlantCatalogue.Crops)
+        {
+            if (SeedCrop(type.RequiredShared) != null)
+            {
+                _ = seeds.Add(type.RequiredShared);
+            }
+        }
+
+        foreach (ItemDrop drop in GroundItems.Loose(i => seeds.Contains(i.m_shared.m_name)))
+        {
+            Vector3 p = drop.transform.position;
+            if (!_looseFailed.Contains(drop) && InJobArea(p) && IsCultivatedSpot(p, out _))
+            {
+                found.Add(drop);
+            }
+        }
+        return found;
+    }
+
+    private ItemDrop NearestLooseSeed()
+    {
+        ItemDrop best = null;
+        float bestDist = float.MaxValue;
+        foreach (ItemDrop drop in LooseSeeds())
+        {
+            float d = Vector3.Distance(drop.transform.position, transform.position);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = drop;
+            }
+        }
+        return best;
     }
 
     /// <summary>Ripe crops standing on tilled soil inside the job area. Wild pickables are left alone.</summary>
@@ -388,6 +457,9 @@ public class FarmerWorker : WorkerBrain
         _batchSpots.Clear();
         _batchType = null;
         _harvest = null;
+        _looseTarget = null;
+        _looseFailed.Clear();
+        _loosePlanted.Clear();
 
         if (!System.Linq.Enumerable.Any(PlantCatalogue.Crops))
         {
@@ -396,7 +468,7 @@ public class FarmerWorker : WorkerBrain
         }
 
         bool tilled = false;
-        bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds();
+        bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds() || LooseSeeds().Count > 0;
         if (!work)
         {
             _reachChecksLeft = MaxReachChecks;
@@ -466,6 +538,7 @@ public class FarmerWorker : WorkerBrain
             Phase.Harvest => HarvestNow(dt),
             Phase.Collect => Collect(dt),
             Phase.Deposit => Deposit(dt),
+            Phase.Gather => Gather(dt),
             _ => false,
         };
     }
@@ -495,6 +568,26 @@ public class FarmerWorker : WorkerBrain
             return BeginWalk(_batchSpots[0], "Walking to plant " + _batchType.Prefab.name.Replace("sapling_", ""), Phase.Plant);
         }
         _batchSpots.Clear();
+
+        // Tidy up seeds lying on the soil first; they are then planted before anything else.
+        ItemDrop loose = NearestLooseSeed();
+        if (loose != null)
+        {
+            _looseTarget = loose;
+            Vector3 at = loose.transform.position;
+            if (Navigator.Begin("loose seeds", _ => at, rememberFailure: true))
+            {
+                _phase = Phase.Walk;
+                _nextAfterWalk = Phase.Gather;
+                SetStatus("Picking up seeds from the soil");
+            }
+            else
+            {
+                _ = _looseFailed.Add(loose);
+                _looseTarget = null;
+            }
+            return true;
+        }
 
         // Harvest first: it frees up tilled soil and produces seeds.
         Pickable ripe = NearestRipe();
@@ -556,6 +649,28 @@ public class FarmerWorker : WorkerBrain
     private bool StartBatch()
     {
         _reachChecksLeft = MaxReachChecks;
+
+        // Seeds picked up off the soil go in the ground first, from what is carried (no chest trip).
+        foreach (PlantType type in new List<PlantType>(_loosePlanted))
+        {
+            int carried = Logistics.Carried.CountItems(type.RequiredShared) / type.Amount;
+            List<Vector3> spots = carried > 0 && !_failedTypes.Contains(type)
+                ? FindSpots(type, Math.Min(carried, WorkerConfig.PlantsPerTrip.Value))
+                : [];
+            if (spots.Count == 0)
+            {
+                // Nothing left to plant, or nowhere to plant it: any spare seeds go back to the input chest.
+                _ = _loosePlanted.Remove(type);
+                continue;
+            }
+
+            _batchType = type;
+            _batchSpots.Clear();
+            _batchSpots.AddRange(spots);
+            _phase = Phase.Plan;
+            return true;
+        }
+
         Dictionary<string, int> counts = CountFamilies();
         foreach (string family in OrderedFamilies(counts))
         {
@@ -655,12 +770,20 @@ public class FarmerWorker : WorkerBrain
             _phase = Phase.Plan;
             return true;
         }
+        if (_nextAfterWalk == Phase.Gather && _looseTarget == null)
+        {
+            // Someone else picked the seeds up meanwhile.
+            _phase = Phase.Plan;
+            return true;
+        }
 
         switch (Navigator.Step(dt))
         {
             case NavResult.InReach:
             case NavResult.CloseEnough:
-                _timer = _nextAfterWalk == Phase.Harvest ? 0.2f : PlantTime;
+                _timer = _nextAfterWalk == Phase.Plant ? PlantTime : 0.2f;
+                _collectPos = _nextAfterWalk == Phase.Gather ? _looseTarget.transform.position : _collectPos;
+                _collectTries = 0;
                 _phase = _nextAfterWalk;
                 break;
 
@@ -669,6 +792,14 @@ public class FarmerWorker : WorkerBrain
                 {
                     _ = _failedPickables.Add(_harvest);
                     _harvest = null;
+                }
+                else if (_nextAfterWalk == Phase.Gather)
+                {
+                    if (_looseTarget != null)
+                    {
+                        _ = _looseFailed.Add(_looseTarget);
+                    }
+                    _looseTarget = null;
                 }
                 else if (_batchSpots.Count > 0)
                 {
@@ -796,6 +927,53 @@ public class FarmerWorker : WorkerBrain
         if (Humanoid.Pickup(target.gameObject, false, false))
         {
             _ = _ours.Add(shared);
+            _collectTries = 0;
+        }
+        return true;
+    }
+
+    /// <summary>Picks up the loose seeds walked to, and any others lying on the soil close by.</summary>
+    private bool Gather(float dt)
+    {
+        Ai.StopMoving();
+        _timer -= dt;
+        if (_timer > 0f)
+        {
+            return true;
+        }
+        _timer = CollectInterval;
+
+        ItemDrop target = null;
+        foreach (ItemDrop drop in LooseSeeds())
+        {
+            if (Vector3.Distance(drop.transform.position, _collectPos) < GatherRadius)
+            {
+                target = drop;
+                break;
+            }
+        }
+
+        if (target == null || ++_collectTries > MaxCollectTries)
+        {
+            // Whatever could not be picked up (inventory full, or never got ownership) is left for later.
+            if (target != null)
+            {
+                _ = _looseFailed.Add(target);
+            }
+            _looseTarget = null;
+            _phase = Phase.Plan;
+            return true;
+        }
+
+        string shared = target.m_itemData.m_shared.m_name;
+        if (GroundItems.Take(Humanoid, target) > 0)
+        {
+            PlantType type = SeedCrop(shared);
+            _ = _ours.Add(shared);
+            if (type != null && !_loosePlanted.Contains(type))
+            {
+                _loosePlanted.Add(type);
+            }
             _collectTries = 0;
         }
         return true;
