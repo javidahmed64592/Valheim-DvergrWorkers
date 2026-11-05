@@ -446,6 +446,7 @@ public class WoodcutterWorker : WorkerBrain
         drop.RequestOwn();
         if (Humanoid.Pickup(_target, false, false))
         {
+            Animation.PlayPickup();
             _target = null;
             _phase = Phase.Plan;
             return true;

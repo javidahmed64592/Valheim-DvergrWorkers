@@ -4,6 +4,8 @@
 
 # DvergrWorkers
 
+![Workers](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_0.png)
+
 Dvergr workers help around your base and defend it when it is under attack:
 
 - **Repair Worker** - fixes damaged structures around the base.
@@ -84,6 +86,12 @@ This keeps your chests organised.
 Workers that need chests will not begin their jobs until they are built within the job radius.
 If the output chests are full, the worker stops and the bed's hover text says so.
 
+Workers also tidy up and use items lying on the ground, so you do not always have to visit the input chest:
+
+- Machine workers (blacksmith, barley, flax and eitr) use input items dropped right next to one of their machines, e.g. ore beside a smelter.
+- The refueler uses fuel dropped right next to the fire it is refuelling.
+- The tree farmer picks up tree seeds, cones and acorns lying near somewhere it would plant a tree, plants as many as it can close to where they lay, and returns the rest to the input chest.
+
 Workers also pass items along to each other.
 If another worker nearby makes an item, a worker that needs it will take it from the output chests.
 Items no worker produces are never taken from output chests, so your finished goods stay put.
@@ -105,7 +113,7 @@ For example, the farmer can keep replanting barley while the barley worker mills
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
-You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, and whether workers take each other's items from output chests.
+You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, whether workers take each other's items from output chests, and how close to a machine dropped items must be for machine workers to use them.
 
 ## Known Limitations
 

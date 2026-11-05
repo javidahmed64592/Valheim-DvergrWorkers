@@ -20,7 +20,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.dvergrworkers";
     public const string PluginName = "Dvergr Workers";
-    public const string PluginVersion = "0.11.2";
+    public const string PluginVersion = "0.12.0";
 
     internal static BepInEx.Logging.ManualLogSource Log { get; private set; }
 
@@ -69,6 +69,10 @@ internal static class WorkerConfig
     public static ConfigEntry<int> TreesPerRound;
     public static ConfigEntry<int> StumpsPerRound;
     public static ConfigEntry<bool> TakeFromOutputChests;
+    public static ConfigEntry<float> GroundPickupRadius;
+    public static ConfigEntry<bool> FarmerPlantsLooseSeeds;
+    public static ConfigEntry<bool> TreeFarmerPlantsLooseSeeds;
+    public static ConfigEntry<float> TreeLooseSeedRadius;
     public static ConfigEntry<float> RefuelBelow;
     public static ConfigEntry<int> SeedReserve;
     public static ConfigEntry<int> PlantsPerTrip;
@@ -115,6 +119,9 @@ internal static class WorkerConfig
 
         TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
             "Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched.");
+        GroundPickupRadius = config.Bind("Workers", "GroundPickupRadius", 4f,
+            new ConfigDescription("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.",
+                new AcceptableValueRange<float>(0f, 8f)));
         InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
             new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
         InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
@@ -131,6 +138,12 @@ internal static class WorkerConfig
             new ConfigDescription("The farmer plants raw ingredients (a carrot, a turnip...) to make more seeds once a crop's seeds fall to this many or fewer.", new AcceptableValueRange<int>(0, 50)));
         PlantsPerTrip = config.Bind(WorkerRoles.Farmer.Name, "PlantsPerTrip", 8,
             new ConfigDescription("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
+        FarmerPlantsLooseSeeds = config.Bind(WorkerRoles.Farmer.Name, "PlantLooseSeeds", true,
+            "The farmer tidies up seeds and crops lying on tilled soil in its job area. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
+        TreeFarmerPlantsLooseSeeds = config.Bind(WorkerRoles.TreeFarmer.Name, "PlantLooseSeeds", true,
+            "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area near somewhere it would plant a tree itself (see LooseSeedRadius). It plants as many as it can, nearest where they lay first, and returns the rest to the input chest.");
+        TreeLooseSeedRadius = config.Bind(WorkerRoles.TreeFarmer.Name, "LooseSeedRadius", 10f,
+            new ConfigDescription("Loose tree seeds are picked up if there is somewhere to plant them within this distance (metres), e.g. a stack dropped on a path next to open ground.", new AcceptableValueRange<float>(1f, 30f)));
         MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
             new ConfigDescription("The tree farmer stops planting once the job area holds this many trees and saplings, wild ones included.", new AcceptableValueRange<int>(1, 500)));
         TreesPerTrip = config.Bind(WorkerRoles.TreeFarmer.Name, "TreesPerTrip", 5,
