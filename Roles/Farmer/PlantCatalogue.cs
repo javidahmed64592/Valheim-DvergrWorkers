@@ -73,16 +73,15 @@ internal static class PlantCatalogue
         {
             // Asked by every worker's supply check, so built once per catalogue rather than on every call.
             List<PlantType> all = All;
-            if (_treeSeedNames == null || _treeSeedNamesFor != all)
+            if (field == null || _treeSeedNamesFor != all)
             {
-                _treeSeedNames = [.. Trees.Select(t => t.RequiredShared)];
+                field = [.. Trees.Select(t => t.RequiredShared)];
                 _treeSeedNamesFor = all;
             }
-            return _treeSeedNames;
+            return field;
         }
     }
 
-    private static HashSet<string> _treeSeedNames;
     private static List<PlantType> _treeSeedNamesFor;
 
     public static bool IsSeedName(string sharedName)
