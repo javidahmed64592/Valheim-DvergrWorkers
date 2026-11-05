@@ -72,6 +72,7 @@ internal static class WorkerConfig
     public static ConfigEntry<float> GroundPickupRadius;
     public static ConfigEntry<bool> FarmerPlantsLooseSeeds;
     public static ConfigEntry<bool> TreeFarmerPlantsLooseSeeds;
+    public static ConfigEntry<float> TreeLooseSeedRadius;
     public static ConfigEntry<float> RefuelBelow;
     public static ConfigEntry<int> SeedReserve;
     public static ConfigEntry<int> PlantsPerTrip;
@@ -140,7 +141,9 @@ internal static class WorkerConfig
         FarmerPlantsLooseSeeds = config.Bind(WorkerRoles.Farmer.Name, "PlantLooseSeeds", true,
             "The farmer tidies up seeds and crops lying on tilled soil in its job area. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
         TreeFarmerPlantsLooseSeeds = config.Bind(WorkerRoles.TreeFarmer.Name, "PlantLooseSeeds", true,
-            "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area wherever it would plant a tree itself, and plants them on that spot.");
+            "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area near somewhere it would plant a tree itself (see LooseSeedRadius). It plants as many as it can, nearest where they lay first, and returns the rest to the input chest.");
+        TreeLooseSeedRadius = config.Bind(WorkerRoles.TreeFarmer.Name, "LooseSeedRadius", 10f,
+            new ConfigDescription("Loose tree seeds are picked up if there is somewhere to plant them within this distance (metres), e.g. a stack dropped on a path next to open ground.", new AcceptableValueRange<float>(1f, 30f)));
         MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
             new ConfigDescription("The tree farmer stops planting once the job area holds this many trees and saplings, wild ones included.", new AcceptableValueRange<int>(1, 500)));
         TreesPerTrip = config.Bind(WorkerRoles.TreeFarmer.Name, "TreesPerTrip", 5,

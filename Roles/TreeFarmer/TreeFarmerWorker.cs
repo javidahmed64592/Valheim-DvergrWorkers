@@ -53,10 +53,15 @@ public class TreeFarmerWorker : WorkerBrain
     private readonly Dictionary<string, int> _plantedByFamily = [];
     private readonly List<Occupied> _plantedSpots = [];
 
-    /// <summary>A tree seed lying where a tree could grow, being walked to so it can be planted on the spot.</summary>
+    /// <summary>A tree seed lying near where a tree could grow, being walked to so it can be picked up.</summary>
     private ItemDrop _looseSeed;
     private PlantType _looseType;
-    private Vector3 _looseSpot;
+
+    /// <summary>
+    /// Seeds picked up off the ground this round and where they lay. They are planted before anything else, nearest
+    /// that spot first, and whatever is left over goes back to the input chest.
+    /// </summary>
+    private readonly List<(PlantType Type, Vector3 Origin)> _loosePlanted = [];
     private int _gatherTries;
     private bool _walkingToSeed;
     private readonly HashSet<ItemDrop> _looseFailed = [];
@@ -172,7 +177,8 @@ public class TreeFarmerWorker : WorkerBrain
     /// Ground where this tree can be planted: its biome, real dirt (not paved), flat enough, above water, away from
     /// buildings and farmland, with open sky and room all round, and well clear of other trees.
     /// </summary>
-    private List<Vector3> FindSpots(PlantType type, int max)
+    /// <param name="nearestTo">Spots closest to this point are chosen first; the worker's own position by default.</param>
+    private List<Vector3> FindSpots(PlantType type, int max, Vector3? nearestTo = null)
     {
         float radius = WorkerConfig.JobRadius.Value;
         int wrongBiome = 0;
@@ -204,7 +210,7 @@ public class TreeFarmerWorker : WorkerBrain
                 + Heightmap.FindBiome(Home) + " is not in plant biomes " + type.Plant.m_biome + ")");
         }
 
-        Vector3 here = transform.position;
+        Vector3 here = nearestTo ?? transform.position;
         spots.Sort((a, b) => Vector3.Distance(a, here).CompareTo(Vector3.Distance(b, here)));
 
         // Chosen spots must not crowd each other either, since they are planted one after another.
@@ -330,14 +336,14 @@ public class TreeFarmerWorker : WorkerBrain
     }
 
     /// <summary>
-    /// Finds the nearest tree seed lying loose in the job area on a spot where the tree farmer would plant that
-    /// tree itself, so it can be planted right there.
+    /// Finds the nearest tree seed lying loose in the job area within <see cref="WorkerConfig.TreeLooseSeedRadius"/>
+    /// of somewhere the tree farmer would plant that tree itself. A stack dropped on a path or by a building still
+    /// counts as long as there is good ground close by.
     /// </summary>
-    private bool NearestLooseSeed(out ItemDrop seed, out PlantType type, out Vector3 spot)
+    private bool NearestLooseSeed(out ItemDrop seed, out PlantType type)
     {
         seed = null;
         type = null;
-        spot = Vector3.zero;
         if (!WorkerConfig.TreeFarmerPlantsLooseSeeds.Value)
         {
             return false;
@@ -360,25 +366,49 @@ public class TreeFarmerWorker : WorkerBrain
         Vector3 here = transform.position;
         candidates.Sort((a, b) => Vector3.Distance(a.transform.position, here).CompareTo(Vector3.Distance(b.transform.position, here)));
         List<Occupied> occupied = OccupiedSpots();
-        int wrongBiome = 0;
         foreach (ItemDrop drop in candidates)
         {
-            Vector3 p = drop.transform.position;
-            p.y = ZoneSystem.instance.GetGroundHeight(p);
             foreach (PlantType candidate in PlantCatalogue.Trees)
             {
                 if (candidate.RequiredShared == drop.m_itemData.m_shared.m_name && !_failedTypes.Contains(candidate)
-                    && !UnreachableSpots.IsKnown(p) && Suitable(candidate, p, occupied, ref wrongBiome))
+                    && HasSpotNear(candidate, drop.transform.position, occupied))
                 {
                     seed = drop;
                     type = candidate;
-                    spot = p;
                     return true;
                 }
             }
 
-            // Not somewhere a tree should go (a path, next to a building...): leave it be this round.
+            // No good ground anywhere near it (deep inside the base, on farmland...): leave it be this round.
             _ = _looseFailed.Add(drop);
+        }
+        return false;
+    }
+
+    /// <summary>Whether this tree could be planted somewhere within <see cref="WorkerConfig.TreeLooseSeedRadius"/> of a point.</summary>
+    private bool HasSpotNear(PlantType type, Vector3 centre, List<Occupied> occupied)
+    {
+        float radius = WorkerConfig.TreeLooseSeedRadius.Value;
+        int wrongBiome = 0;
+        for (float x = -radius; x <= radius; x += GridStep)
+        {
+            for (float z = -radius; z <= radius; z += GridStep)
+            {
+                if ((x * x) + (z * z) > radius * radius)
+                {
+                    continue;
+                }
+                Vector3 p = new(centre.x + x, 0f, centre.z + z);
+                if (!InJobArea(p))
+                {
+                    continue;
+                }
+                p.y = ZoneSystem.instance.GetGroundHeight(p);
+                if (!UnreachableSpots.IsKnown(p) && Suitable(type, p, occupied, ref wrongBiome))
+                {
+                    return true;
+                }
+            }
         }
         return false;
     }
@@ -446,6 +476,7 @@ public class TreeFarmerWorker : WorkerBrain
         _looseSeed = null;
         _walkingToSeed = false;
         _looseFailed.Clear();
+        _loosePlanted.Clear();
 
         if (!System.Linq.Enumerable.Any(PlantCatalogue.Trees))
         {
@@ -482,7 +513,7 @@ public class TreeFarmerWorker : WorkerBrain
             return CarryingSeeds();
         }
 
-        if (NearestLooseSeed(out _, out _, out _))
+        if (NearestLooseSeed(out _, out _))
         {
             return true;
         }
@@ -570,17 +601,16 @@ public class TreeFarmerWorker : WorkerBrain
             return false;
         }
 
-        while (NearestLooseSeed(out ItemDrop seed, out PlantType type, out Vector3 spot))
+        while (NearestLooseSeed(out ItemDrop seed, out PlantType type))
         {
-            Vector3 at = spot;
+            Vector3 at = seed.transform.position;
             if (Navigator.Begin("loose seed", _ => at, rememberFailure: true))
             {
                 _looseSeed = seed;
                 _looseType = type;
-                _looseSpot = spot;
                 _walkingToSeed = true;
                 _phase = Phase.Walk;
-                SetStatus("Walking to plant a fallen " + type.RequiredShared.TrimStart('$').Replace("item_", ""));
+                SetStatus("Picking up fallen " + type.RequiredShared.TrimStart('$').Replace("item_", ""));
                 return true;
             }
             _ = _looseFailed.Add(seed);
@@ -588,7 +618,7 @@ public class TreeFarmerWorker : WorkerBrain
         return false;
     }
 
-    /// <summary>Picks up the loose seed, then plants it on the spot it was lying on.</summary>
+    /// <summary>Picks up the whole stack of loose seeds; <see cref="StartBatch"/> then plants them first.</summary>
     private bool Gather(float dt)
     {
         Ai.StopMoving();
@@ -611,16 +641,11 @@ public class TreeFarmerWorker : WorkerBrain
             return true;
         }
 
+        Vector3 origin = _looseSeed.transform.position;
         if (GroundItems.Take(Humanoid, _looseSeed) > 0)
         {
             _looseSeed = null;
-            if (Logistics.Carried.CountItems(_looseType.RequiredShared) >= _looseType.Amount)
-            {
-                // Plan carries on with this one-spot batch: the worker is already standing there.
-                _batchType = _looseType;
-                _batchSpots.Clear();
-                _batchSpots.Add(_looseSpot);
-            }
+            _loosePlanted.Add((_looseType, origin));
             _phase = Phase.Plan;
         }
         return true;
@@ -635,6 +660,28 @@ public class TreeFarmerWorker : WorkerBrain
         {
             _full = true;
             return false;
+        }
+
+        // Seeds picked up off the ground go in first, as many as there is room for, nearest where they lay first.
+        foreach ((PlantType Type, Vector3 Origin) loose in new List<(PlantType, Vector3)>(_loosePlanted))
+        {
+            PlantType type = loose.Type;
+            int seeds = Logistics.Carried.CountItems(type.RequiredShared) / type.Amount;
+            List<Vector3> spots = seeds > 0 && !_failedTypes.Contains(type)
+                ? FindSpots(type, Math.Min(seeds, room), loose.Origin)
+                : [];
+            if (spots.Count == 0)
+            {
+                // All planted, or nowhere left to plant them: any spares go back to the input chest.
+                _ = _loosePlanted.Remove(loose);
+                continue;
+            }
+
+            _batchType = type;
+            _batchSpots.Clear();
+            _batchSpots.AddRange(spots);
+            _phase = Phase.Plan;
+            return true;
         }
 
         foreach (string family in OrderedFamilies(counts))
