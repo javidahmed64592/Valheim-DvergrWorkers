@@ -166,7 +166,7 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
     {
         best = Vector3.zero;
         float radius = Mathf.Min(WorkerConfig.WanderRadius.Value, WorkerConfig.JobRadius.Value);
-        float bestScore = float.MinValue;
+        _picks.Clear();
         Vector3 here = _transform.position;
 
         for (int i = 0; i < Candidates; i++)
@@ -195,21 +195,38 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
 
             float playerGap = NearestPlayerDistance(spot);
             float workerGap = _nearestOther(spot);
-            if (playerGap < PlayerKeepOut || workerGap < WorkerSpace || !IsOpen(spot) || !IsWalkable(here, spot, travel))
+            if (playerGap < PlayerKeepOut || workerGap < WorkerSpace || !IsOpen(spot))
             {
                 continue;
             }
 
             float score = (2f * (1f - (distance / radius))) + (Mathf.Min(playerGap, 10f) / 10f) + (Mathf.Min(workerGap, 8f) / 8f)
                 + UnityEngine.Random.Range(0f, 0.3f);
-            if (score > bestScore)
+            _picks.Add((score, spot, travel));
+        }
+
+        // Path queries are the expensive check, so only the best-scoring spots are asked about, best first.
+        _picks.Sort((a, b) => b.Score.CompareTo(a.Score));
+        int queries = 0;
+        foreach ((float score, Vector3 spot, float travel) in _picks)
+        {
+            if (queries++ >= MaxWalkChecks)
             {
-                bestScore = score;
+                break;
+            }
+            if (IsWalkable(here, spot, travel))
+            {
                 best = spot;
+                _picks.Clear();
+                return true;
             }
         }
-        return bestScore > float.MinValue;
+        _picks.Clear();
+        return false;
     }
+
+    private const int MaxWalkChecks = 4;
+    private readonly List<(float Score, Vector3 Spot, float Travel)> _picks = [];
 
     /// <summary>
     /// Finds somewhere to go that is clearly further from a player standing too close. Unlike a normal stroll

@@ -50,9 +50,10 @@ public class RepairWorker : WorkerBrain
         _failed.Clear();
         _repairedThisRound = 0;
 
+        // Distance first: a big base has many thousands of pieces, and NeedsRepair looks up a component on each.
         foreach (WearNTear wnt in WearNTear.GetAllInstances())
         {
-            if (NeedsRepair(wnt) && InJobArea(wnt.transform.position))
+            if (wnt != null && InJobArea(wnt.transform.position) && NeedsRepair(wnt))
             {
                 _queue.Add(wnt);
             }
@@ -145,11 +146,26 @@ public class RepairWorker : WorkerBrain
         return true;
     }
 
-    /// <summary>Nearest-neighbour pick from the queue, choosing only pieces we can find a standing spot for.</summary>
+    /// <summary>
+    /// Pieces whose standing spot is looked for in one frame. Each look costs several path queries, so trying a
+    /// whole queue of out-of-reach pieces (a damaged roof, say) in one go would freeze the game.
+    /// </summary>
+    private const int MaxPicksPerFrame = 2;
+
+    /// <summary>
+    /// Nearest-neighbour pick from the queue, choosing only pieces we can find a standing spot for. Returns true
+    /// with no piece chosen when it ran out of tries for this frame and should be called again next frame.
+    /// </summary>
     private bool PickNext()
     {
+        int tries = 0;
         while (_queue.Count > 0)
         {
+            if (tries >= MaxPicksPerFrame)
+            {
+                return true;
+            }
+
             int best = -1;
             float bestDist = float.MaxValue;
             for (int i = 0; i < _queue.Count; i++)
@@ -180,6 +196,7 @@ public class RepairWorker : WorkerBrain
                 continue;
             }
 
+            tries++;
             if (Navigator.Begin(candidate.name, from => WorkerNavigator.ClosestPointOnColliders(candidate.gameObject, from), rememberFailure: true))
             {
                 _current = candidate;

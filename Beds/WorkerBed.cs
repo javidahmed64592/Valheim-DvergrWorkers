@@ -129,6 +129,32 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
     /// </summary>
     internal bool TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength)
     {
+        // A built bed does not move, and this is asked every frame while a worker lies in it.
+        if (_sleepSpotKnown && transform.position == _sleepSpotFor)
+        {
+            centre = _sleepCentre;
+            axis = _sleepAxis;
+            halfLength = _sleepHalfLength;
+            return true;
+        }
+
+        _ = MeasureSleepSpot(out centre, out axis, out halfLength);
+        _sleepSpotKnown = true;
+        _sleepSpotFor = transform.position;
+        _sleepCentre = centre;
+        _sleepAxis = axis;
+        _sleepHalfLength = halfLength;
+        return true;
+    }
+
+    private bool _sleepSpotKnown;
+    private Vector3 _sleepSpotFor;
+    private Vector3 _sleepCentre;
+    private Vector3 _sleepAxis;
+    private float _sleepHalfLength;
+
+    private bool MeasureSleepSpot(out Vector3 centre, out Vector3 axis, out float halfLength)
+    {
         centre = transform.position;
         axis = transform.forward;
         halfLength = 1f;
@@ -176,6 +202,13 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
     {
         if (_nview == null || !_nview.IsValid() || !_nview.IsOwner())
         {
+            _scanSector = -1;
+            return;
+        }
+
+        if (_scanSector >= 0)
+        {
+            ContinueScan();
             return;
         }
 
@@ -215,37 +248,98 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         }
 
         // Authoritative check before spawning: look through every ZDO, including ones not loaded as
-        // objects (a worker standing in a distant zone is still a worker).
-        if (WorkerZdoExists(id))
+        // objects (a worker standing in a distant zone is still a worker). The world can hold millions of
+        // them, so the search is spread over several frames instead of stalling one.
+        _scanSector = 0;
+        _scanBedId = id;
+        ContinueScan();
+    }
+
+    /// <summary>Sector slots plus ZDOs looked at per frame while searching the world for this bed's worker.</summary>
+    private const int ScanBudgetPerFrame = 40000;
+
+    /// <summary>Next sector to search, or -1 when no search is running.</summary>
+    private int _scanSector = -1;
+    private string _scanBedId = "";
+    private HashSet<int> _workerHashes;
+
+    private void ContinueScan()
+    {
+        ZDOMan zdoMan = ZDOMan.instance;
+        if (zdoMan == null)
         {
-            _missingSince = Time.time;
+            _scanSector = -1;
             return;
         }
 
-        SpawnWorker(id);
-        _missingSince = -1f;
-    }
-
-    private bool WorkerZdoExists(string bedId)
-    {
-        List<ZDO> found = [];
-        int index = 0;
-        for (int variant = 0; variant < WorkerPrefabs.Variants.Length; variant++)
+        if (_workerHashes == null)
         {
-            index = 0;
-            while (!ZDOMan.instance.GetAllZDOsWithPrefabIterative(Role.WorkerPrefabFor(variant), found, ref index))
+            _workerHashes = [];
+            for (int variant = 0; variant < WorkerPrefabs.Variants.Length; variant++)
             {
+                _ = _workerHashes.Add(Role.WorkerPrefabFor(variant).GetStableHashCode());
             }
         }
 
-        foreach (ZDO zdo in found)
+        List<ZDO>[] sectors = zdoMan.m_objectsBySector;
+        int budget = ScanBudgetPerFrame;
+        while (_scanSector < sectors.Length && budget > 0)
         {
-            if (zdo.GetString(BedIdKey, "") == bedId)
+            List<ZDO> list = sectors[_scanSector++];
+            budget--;
+            if (list == null)
+            {
+                continue;
+            }
+            budget -= list.Count;
+            if (ContainsWorker(list))
+            {
+                FinishScan(found: true);
+                return;
+            }
+        }
+        if (_scanSector < sectors.Length)
+        {
+            return;
+        }
+
+        foreach (List<ZDO> list in zdoMan.m_portalObjects.Values)
+        {
+            if (ContainsWorker(list))
+            {
+                FinishScan(found: true);
+                return;
+            }
+        }
+        FinishScan(found: false);
+    }
+
+    private bool ContainsWorker(List<ZDO> zdos)
+    {
+        foreach (ZDO zdo in zdos)
+        {
+            if (_workerHashes.Contains(zdo.GetPrefab()) && zdo.IsValid() && zdo.GetString(BedIdKey, "") == _scanBedId)
             {
                 return true;
             }
         }
         return false;
+    }
+
+    private void FinishScan(bool found)
+    {
+        _scanSector = -1;
+        _checkTimer = CheckInterval;
+
+        // The worker may have loaded in while the search was running.
+        if (found || WorkerBrain.IsLoaded(_scanBedId))
+        {
+            _missingSince = Time.time;
+            return;
+        }
+
+        SpawnWorker(_scanBedId);
+        _missingSince = -1f;
     }
 
     private void SpawnWorker(string bedId)

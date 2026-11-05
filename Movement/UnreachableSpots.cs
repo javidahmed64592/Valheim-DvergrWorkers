@@ -32,7 +32,47 @@ internal static class UnreachableSpots
 
     public static void Add(Vector3 p)
     {
+        Prune();
         Until[Key(p)] = Time.time + Memory;
+    }
+
+    private const int PruneAbove = 512;
+    private static readonly List<long> Expired = [];
+
+    /// <summary>Forgets entries that no longer matter once there are many, so the tables do not grow all session.</summary>
+    private static void Prune()
+    {
+        if (Until.Count + Suspected.Count < PruneAbove)
+        {
+            return;
+        }
+
+        float now = Time.time;
+        Expired.Clear();
+        foreach (KeyValuePair<long, float> entry in Until)
+        {
+            if (now >= entry.Value)
+            {
+                Expired.Add(entry.Key);
+            }
+        }
+        foreach (long key in Expired)
+        {
+            _ = Until.Remove(key);
+        }
+
+        Expired.Clear();
+        foreach (KeyValuePair<long, float> entry in Suspected)
+        {
+            if (now - entry.Value >= Memory)
+            {
+                Expired.Add(entry.Key);
+            }
+        }
+        foreach (long key in Expired)
+        {
+            _ = Suspected.Remove(key);
+        }
     }
 
     /// <summary>True if a path check failed for this spot a moment ago and it is too soon to ask again.</summary>
@@ -51,6 +91,7 @@ internal static class UnreachableSpots
             _ = Suspected.Remove(key);
             return;
         }
+        Prune();
         Suspected[key] = Time.time;
     }
 

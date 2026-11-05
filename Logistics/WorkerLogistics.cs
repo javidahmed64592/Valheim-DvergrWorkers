@@ -95,6 +95,26 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
     /// </summary>
     public int AvailableTo(string sharedName)
     {
+        // Planning asks this many times in one frame (once or more per fire, machine or crop), and every answer
+        // walks all the chests and workers nearby, so answers are kept until the frame ends or items move.
+        if (_availableFrame != Time.frameCount)
+        {
+            _availableFrame = Time.frameCount;
+            _available.Clear();
+        }
+        if (!_available.TryGetValue(sharedName, out int available))
+        {
+            available = ComputeAvailableTo(sharedName);
+            _available[sharedName] = available;
+        }
+        return available;
+    }
+
+    private readonly Dictionary<string, int> _available = [];
+    private int _availableFrame = -1;
+
+    private int ComputeAvailableTo(string sharedName)
+    {
         int inChests = CountAvailable(i => i.m_shared.m_name == sharedName);
         if (inChests <= 0)
         {
@@ -347,6 +367,8 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
 
     private int Transfer()
     {
+        _availableFrame = -1;
+
         // The chest's ZDO may be owned by another player; take ownership so the change is saved.
         ZNetView chestView = _chest.GetComponent<ZNetView>();
         chestView.ClaimOwnership();

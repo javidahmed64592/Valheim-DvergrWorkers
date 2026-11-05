@@ -23,8 +23,13 @@ public class TreeFarmerWorker : WorkerBrain
 
     private const float PlantTime = 0.6f;
 
-    /// <summary>Most path checks made while choosing spots, so one planning pass cannot stall the game.</summary>
+    /// <summary>
+    /// Most path checks made while choosing spots in one planning pass (across every plant type it tries), so a pass
+    /// cannot stall the game.
+    /// </summary>
     private const int MaxReachChecks = 30;
+
+    private int _reachChecksLeft;
     private const float GridStep = 2f;
     private const float TreeSpacingMargin = 1f;
     private const float DefaultTreeRoom = 2f;
@@ -228,7 +233,11 @@ public class TreeFarmerWorker : WorkerBrain
                 bool crowded = false;
                 foreach (Occupied other in occupied)
                 {
-                    crowded |= Utils.DistanceXZ(other.Position, p) < Mathf.Max(room, other.Radius) + TreeSpacingMargin;
+                    if (Utils.DistanceXZ(other.Position, p) < Mathf.Max(room, other.Radius) + TreeSpacingMargin)
+                    {
+                        crowded = true;
+                        break;
+                    }
                 }
                 if (!crowded)
                 {
@@ -248,13 +257,16 @@ public class TreeFarmerWorker : WorkerBrain
 
         // Chosen spots must not crowd each other either, since they are planted one after another.
         List<Vector3> chosen = [];
-        int checks = 0;
         foreach (Vector3 spot in spots)
         {
             bool crowded = false;
             foreach (Vector3 other in chosen)
             {
-                crowded |= Utils.DistanceXZ(other, spot) < (room * 2f) + TreeSpacingMargin;
+                if (Utils.DistanceXZ(other, spot) < (room * 2f) + TreeSpacingMargin)
+                {
+                    crowded = true;
+                    break;
+                }
             }
             if (crowded || UnreachableSpots.IsKnown(spot))
             {
@@ -268,10 +280,13 @@ public class TreeFarmerWorker : WorkerBrain
                 _pendingChecks++;
                 continue;
             }
-            if (checks++ >= MaxReachChecks)
+            if (_reachChecksLeft <= 0)
             {
+                // Out of checks for this pass: there may well be good spots left, so look again soon.
+                _pendingChecks++;
                 break;
             }
+            _reachChecksLeft--;
             Vector3 target = spot;
             if (!Navigator.CanReach(_ => target))
             {
@@ -377,6 +392,7 @@ public class TreeFarmerWorker : WorkerBrain
     /// <summary>True if there is room for more trees, seeds to plant, and somewhere to plant them.</summary>
     private bool AnythingToPlant()
     {
+        _reachChecksLeft = MaxReachChecks;
         Dictionary<string, int> counts = CountFamilies(out int total);
         if (total >= WorkerConfig.MaxTrees.Value)
         {
@@ -454,6 +470,7 @@ public class TreeFarmerWorker : WorkerBrain
 
     private bool StartBatch()
     {
+        _reachChecksLeft = MaxReachChecks;
         Dictionary<string, int> counts = CountFamilies(out int total);
         int room = WorkerConfig.MaxTrees.Value - total;
         if (room <= 0)
