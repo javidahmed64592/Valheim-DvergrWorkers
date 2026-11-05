@@ -93,13 +93,20 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _rememberFailure = rememberFailure;
         _reach = _role.Reach.Value;
 
-        // A target this worker already gave up on is not worth walking to again for a while.
-        if (rememberFailure && UnreachableSpots.IsKnown(closestPoint(_transform.position)))
+        // A target this worker already gave up on is not worth walking to again for a while. Finding no standing
+        // spot is remembered too: that search is the expensive part, and repeating it every round for a piece
+        // nobody can reach (a high roof, a fire behind a wall) is what stalls the game.
+        Vector3 spot = rememberFailure ? closestPoint(_transform.position) : Vector3.zero;
+        if (rememberFailure && (UnreachableSpots.IsKnown(spot) || UnreachableSpots.IsPending(spot)))
         {
             return false;
         }
         if (!FindStandPoint(out _standPoint, strict: false))
         {
+            if (rememberFailure)
+            {
+                UnreachableSpots.Suspect(spot);
+            }
             return false;
         }
 
@@ -283,70 +290,113 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
     }
 
+    /// <summary>
+    /// Path queries are synchronous and, for a spot that cannot be reached, search the whole connected navmesh.
+    /// These caps keep one search for a standing spot cheap however many ring points there are.
+    /// </summary>
+    private const int MaxFullPathQueries = 10;
+    private const int MaxPartialPathQueries = 4;
+
+    private readonly List<Vector3> _candidates = [];
+
     private bool FindStandPoint(out Vector3 best, bool strict)
     {
         best = Vector3.zero;
-        if (InReach(_transform.position))
+        Vector3 here = _transform.position;
+        if (InReach(here))
         {
-            best = _transform.position;
+            best = here;
             return true;
         }
 
-        Vector3 target = _closestPoint(_transform.position);
-        float reach = _reach;
-        float bestLength = float.MaxValue;
-        float bestGap = float.MaxValue;
-        bool found = false;
-
-        for (int pass = 0; pass < (strict ? 1 : 2) && !found; pass++)
+        // Ground spots in rings around the target. Casting down from just above the target finds floors under roofs, not the roof.
+        Vector3 target = _closestPoint(here);
+        _candidates.Clear();
+        for (float radius = 0f; radius <= _reach; radius += StandRingStep)
         {
-            for (float radius = 0f; radius <= reach; radius += StandRingStep)
+            int angles = radius <= 0f ? 1 : StandAngles;
+            for (int a = 0; a < angles; a++)
             {
-                int angles = radius <= 0f ? 1 : StandAngles;
-                for (int a = 0; a < angles; a++)
+                float rad = a * Mathf.PI * 2f / angles;
+                Vector3 candidate = target + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
+                if (Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask))
                 {
-                    float rad = a * Mathf.PI * 2f / angles;
-                    Vector3 candidate = target + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
-
-                    // Cast down from just above the target so floors under roofs are found, not the roof.
-                    if (!Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask))
-                    {
-                        continue;
-                    }
-
-                    if (!Pathfinding.instance.GetPath(_transform.position, hit.point, _pathScratch, _ai.m_pathAgentType, requireFullPath: pass == 0)
-                        || _pathScratch.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    // The navmesh may have snapped the goal elsewhere; judge from where we will really stand.
-                    Vector3 end = _pathScratch[_pathScratch.Count - 1];
-                    if (pass == 0)
-                    {
-                        if (!InReach(end) || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
-                        {
-                            continue;
-                        }
-                        float length = PathLength(_pathScratch);
-                        if (length < bestLength)
-                        {
-                            bestLength = length;
-                            best = end;
-                            found = true;
-                        }
-                    }
-                    else
-                    {
-                        float gap = Gap(end);
-                        if (gap < bestGap)
-                        {
-                            bestGap = gap;
-                            best = end;
-                            found = true;
-                        }
-                    }
+                    _candidates.Add(hit.point);
                 }
+            }
+        }
+
+        // The spots nearest the worker are the likeliest to have a short path, so they are asked about first.
+        _candidates.Sort((a, b) => (a - here).sqrMagnitude.CompareTo((b - here).sqrMagnitude));
+
+        float bestLength = float.MaxValue;
+        bool found = false;
+        int queries = 0;
+        foreach (Vector3 candidate in _candidates)
+        {
+            if (queries++ >= MaxFullPathQueries)
+            {
+                break;
+            }
+            if (!Pathfinding.instance.GetPath(here, candidate, _pathScratch, _ai.m_pathAgentType, requireFullPath: true)
+                || _pathScratch.Count == 0)
+            {
+                continue;
+            }
+
+            // The navmesh may have snapped the goal elsewhere; judge from where we will really stand.
+            Vector3 end = _pathScratch[_pathScratch.Count - 1];
+            if (!InReach(end) || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
+            {
+                continue;
+            }
+            if (strict)
+            {
+                // Only asked whether there is a way at all.
+                best = end;
+                return true;
+            }
+
+            float length = PathLength(_pathScratch);
+            if (length < bestLength)
+            {
+                bestLength = length;
+                best = end;
+                found = true;
+            }
+
+            // A path that is close to a straight line cannot be beaten by much, so stop looking.
+            if (length <= (Vector3.Distance(here, end) * 1.3f) + 2f)
+            {
+                return true;
+            }
+        }
+        if (found || strict)
+        {
+            return found;
+        }
+
+        // No full path: settle for whichever partial path ends closest to the target.
+        float bestGap = float.MaxValue;
+        queries = 0;
+        foreach (Vector3 candidate in _candidates)
+        {
+            if (queries++ >= MaxPartialPathQueries)
+            {
+                break;
+            }
+            if (!Pathfinding.instance.GetPath(here, candidate, _pathScratch, _ai.m_pathAgentType, requireFullPath: false)
+                || _pathScratch.Count == 0)
+            {
+                continue;
+            }
+            Vector3 end = _pathScratch[_pathScratch.Count - 1];
+            float gap = Gap(end);
+            if (gap < bestGap)
+            {
+                bestGap = gap;
+                best = end;
+                found = true;
             }
         }
         return found;

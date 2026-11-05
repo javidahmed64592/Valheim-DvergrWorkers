@@ -22,8 +22,13 @@ public class FarmerWorker : WorkerBrain
 
     private const float PlantTime = 0.6f;
 
-    /// <summary>Most path checks made while choosing spots, so one planning pass cannot stall the game.</summary>
+    /// <summary>
+    /// Most path checks made while choosing spots in one planning pass (across every plant type it tries), so a pass
+    /// cannot stall the game.
+    /// </summary>
     private const int MaxReachChecks = 30;
+
+    private int _reachChecksLeft;
     private const float HarvestWait = 0.9f;
     private const float CollectInterval = 0.3f;
     private const int MaxCollectTries = 12;
@@ -255,7 +260,11 @@ public class FarmerWorker : WorkerBrain
                     bool crowded = false;
                     foreach (Occupied other in occupied)
                     {
-                        crowded |= Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + PlantCatalogue.SpacingMargin;
+                        if (Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + PlantCatalogue.SpacingMargin)
+                        {
+                            crowded = true;
+                            break;
+                        }
                     }
                     if (!crowded)
                     {
@@ -277,13 +286,16 @@ public class FarmerWorker : WorkerBrain
 
         // Keep chosen spots from crowding each other: they are planted one after another.
         List<Vector3> chosen = [];
-        int checks = 0;
         foreach (Vector3 spot in spots)
         {
             bool crowded = false;
             foreach (Vector3 other in chosen)
             {
-                crowded |= Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + PlantCatalogue.SpacingMargin;
+                if (Utils.DistanceXZ(other, spot) < type.Plant.m_growRadius + PlantCatalogue.SpacingMargin)
+                {
+                    crowded = true;
+                    break;
+                }
             }
             if (crowded || UnreachableSpots.IsKnown(spot))
             {
@@ -297,10 +309,13 @@ public class FarmerWorker : WorkerBrain
                 _pendingChecks++;
                 continue;
             }
-            if (checks++ >= MaxReachChecks)
+            if (_reachChecksLeft <= 0)
             {
+                // Out of checks for this pass: there may well be good spots left, so look again soon.
+                _pendingChecks++;
                 break;
             }
+            _reachChecksLeft--;
             Vector3 target = spot;
             if (!Navigator.CanReach(_ => target))
             {
@@ -384,6 +399,7 @@ public class FarmerWorker : WorkerBrain
         bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds();
         if (!work)
         {
+            _reachChecksLeft = MaxReachChecks;
             Dictionary<string, int> counts = CountFamilies();
             foreach (string family in OrderedFamilies(counts))
             {
@@ -539,6 +555,7 @@ public class FarmerWorker : WorkerBrain
 
     private bool StartBatch()
     {
+        _reachChecksLeft = MaxReachChecks;
         Dictionary<string, int> counts = CountFamilies();
         foreach (string family in OrderedFamilies(counts))
         {

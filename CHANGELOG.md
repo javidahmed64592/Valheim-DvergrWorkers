@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.11.2
 
+- Fixed the game freezing for a few seconds at a time with several workers out. The main causes were workers searching for a spot to stand next to targets they could not reach (such as a damaged roof), and the bed searching the whole world for its worker in a single frame. Path searches are now capped, unreachable targets are remembered instead of being retried every round, and the bed's search is spread over several frames.
+- Idle wandering, planting and fuel planning now do far fewer path and chest checks per frame.
 - The Refueler Worker now also refuels hot tubs and stone ovens with wood, and shield generators (including the Home Bubble mod's bubbles) with bone fragments or charred bones, alongside torches, fires and braziers.
 
 ## 0.11.1

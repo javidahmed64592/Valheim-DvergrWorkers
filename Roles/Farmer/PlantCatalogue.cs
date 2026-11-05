@@ -67,7 +67,23 @@ internal static class PlantCatalogue
     public static IEnumerable<PlantType> Trees => All.Where(t => t.IsTree);
 
     /// <summary>The item names of every tree seed, cone and acorn, e.g. what felled trees drop.</summary>
-    public static HashSet<string> TreeSeedNames => [.. Trees.Select(t => t.RequiredShared)];
+    public static HashSet<string> TreeSeedNames
+    {
+        get
+        {
+            // Asked by every worker's supply check, so built once per catalogue rather than on every call.
+            List<PlantType> all = All;
+            if (_treeSeedNames == null || _treeSeedNamesFor != all)
+            {
+                _treeSeedNames = [.. Trees.Select(t => t.RequiredShared)];
+                _treeSeedNamesFor = all;
+            }
+            return _treeSeedNames;
+        }
+    }
+
+    private static HashSet<string> _treeSeedNames;
+    private static List<PlantType> _treeSeedNamesFor;
 
     public static bool IsSeedName(string sharedName)
     {

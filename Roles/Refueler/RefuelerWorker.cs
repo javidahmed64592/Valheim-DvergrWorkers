@@ -56,16 +56,36 @@ public class RefuelerWorker : WorkerBrain
     /// <summary>The fuels the refueler is allowed to use.</summary>
     internal override bool WantsItem(string sharedName)
     {
+        return FuelSharedNames().Contains(sharedName);
+    }
+
+    private static HashSet<string> _fuelSharedNames;
+
+    /// <summary>Shared names of <see cref="FuelPrefabs"/>. Every worker's supply check asks every worker this, so it is looked up once.</summary>
+    private static HashSet<string> FuelSharedNames()
+    {
+        if (_fuelSharedNames != null)
+        {
+            return _fuelSharedNames;
+        }
+
+        HashSet<string> names = [];
         foreach (string name in FuelPrefabs)
         {
-            GameObject prefab = ObjectDB.instance.GetItemPrefab(name.Trim());
+            GameObject prefab = ObjectDB.instance != null ? ObjectDB.instance.GetItemPrefab(name.Trim()) : null;
             ItemDrop drop = prefab != null ? prefab.GetComponent<ItemDrop>() : null;
-            if (drop != null && drop.m_itemData.m_shared.m_name == sharedName)
+            if (drop != null)
             {
-                return true;
+                _ = names.Add(drop.m_itemData.m_shared.m_name);
             }
         }
-        return false;
+
+        // Only kept once the item database has loaded, so an early call does not leave it empty.
+        if (names.Count > 0)
+        {
+            _fuelSharedNames = names;
+        }
+        return names;
     }
 
     private static ZNetView View(Component fire)
