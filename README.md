@@ -4,6 +4,8 @@
 
 # DvergrWorkers
 
+![Workers](https://github.com/javidahmed64592/Valheim-DvergrWorkers/raw/main/images/game_screenshot_0.png)
+
 Dvergr workers help around your base and defend it when it is under attack:
 
 - **Repair Worker** - fixes damaged structures around the base.
