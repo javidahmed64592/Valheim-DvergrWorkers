@@ -37,6 +37,17 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private const float EyeHeight = 1.5f;
     private const float ToleranceFactor = 1.25f;
 
+    /// <summary>Seconds allowed per metre of path on top of a fixed allowance, so a long walk is not cut short.</summary>
+    private const float SecondsPerMetre = 0.75f;
+    private const float WalkAllowance = 10f;
+
+    /// <summary>
+    /// Vanilla MoveTo reports "arrived" when it has no path, which is normal for a few seconds while the game builds
+    /// the navmesh around somewhere new. Wait this long for a path before steering straight for the spot instead.
+    /// </summary>
+    private const float NoPathWait = 6f;
+    private const float ArriveSlack = 1f;
+
     private readonly Transform _transform = ai.transform;
     private readonly Character _character = character;
     private readonly MonsterAI _ai = ai;
@@ -51,6 +62,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private float _reach;
     private Vector3 _standPoint;
     private float _walkTimer;
+    private float _walkLimit = WalkTimeout;
+    private float _noPathTimer;
+    private float _pathLength;
     private float _stuckTimer;
     private Vector3 _stuckSamplePos;
     private int _stuckStrikes;
@@ -111,6 +125,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
 
         ResetWalk();
+        _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (_pathLength * SecondsPerMetre));
         return true;
     }
 
@@ -127,11 +142,13 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _reach = tolerance;
         _standPoint = point;
         ResetWalk();
+        _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (Vector3.Distance(_transform.position, point) * 1.5f * SecondsPerMetre));
     }
 
     private void ResetWalk()
     {
         _walkTimer = 0f;
+        _noPathTimer = 0f;
         _stuckTimer = 0f;
         _stuckStrikes = 0;
         _escapes = 0;
@@ -153,18 +170,31 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         if (Time.time < _escapeUntil)
         {
             _ai.MoveTowards(_escapeDir, false);
-            if (_walkTimer <= WalkTimeout)
+            if (_walkTimer <= _walkLimit)
             {
                 return NavResult.Moving;
             }
         }
 
         // Path following first; once stuck, fall back to steering with obstacle avoidance.
-        bool arrived = _stuckStrikes >= 1
-            ? _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false)
-            : _ai.MoveTo(dt, _standPoint, 0.6f, false);
+        bool waitingForPath = false;
+        bool arrived = _stuckStrikes >= 1 ? SteerDirect(dt) : _ai.MoveTo(dt, _standPoint, 0.6f, false);
+        if (arrived && Utils.DistanceXZ(_transform.position, _standPoint) > ArriveSlack)
+        {
+            // Not really there: MoveTo found no path. Give the navmesh a moment, then head straight for the spot.
+            arrived = false;
+            _noPathTimer += dt;
+            if (_noPathTimer < NoPathWait)
+            {
+                waitingForPath = true;
+            }
+            else
+            {
+                arrived = SteerDirect(dt);
+            }
+        }
 
-        _stuckTimer += dt;
+        _stuckTimer = waitingForPath ? 0f : _stuckTimer + dt;
         if (_stuckTimer >= StuckSampleInterval)
         {
             // Movement is locked while an attack animation plays, so that is waiting, not being stuck.
@@ -181,7 +211,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             }
         }
 
-        if (!arrived && _walkTimer <= WalkTimeout && _stuckStrikes < StuckStrikesToGiveUp)
+        if (!arrived && _walkTimer <= _walkLimit && _stuckStrikes < StuckStrikesToGiveUp)
         {
             return NavResult.Moving;
         }
@@ -203,6 +233,19 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             + " (" + Vector3.Distance(_transform.position, _standPoint).ToString("F1", CultureInfo.InvariantCulture) + "m), pathNodes="
             + _ai.m_path.Count + ", onGround=" + _character.IsOnGround() + ", inAttack=" + _character.InAttack());
         return NavResult.Failed;
+    }
+
+    /// <summary>Steers straight for the standing spot around obstacles, but never into water.</summary>
+    private bool SteerDirect(float dt)
+    {
+        Vector3 dir = _standPoint - _transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 1f && IsWaterAhead(_transform.position + (dir.normalized * 1.5f)))
+        {
+            _ai.StopMoving();
+            return false;
+        }
+        return _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false);
     }
 
     /// <summary>Picks the direction with the most free space (leaning towards the goal) and heads that way briefly.</summary>
@@ -345,8 +388,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private bool FindStandPoint(out Vector3 best, bool strict)
     {
         best = Vector3.zero;
+        _pathLength = 0f;
         Vector3 here = _transform.position;
-        if (InReach(here))
+        if (InReach(here) || (!strict && Gap(here) <= _reach * ToleranceFactor))
         {
             best = here;
             return true;
@@ -405,6 +449,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             if (length < bestLength)
             {
                 bestLength = length;
+                _pathLength = length;
                 best = end;
                 found = true;
             }
@@ -439,6 +484,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             if (gap < bestGap)
             {
                 bestGap = gap;
+                _pathLength = PathLength(_pathScratch);
                 best = end;
                 found = true;
             }

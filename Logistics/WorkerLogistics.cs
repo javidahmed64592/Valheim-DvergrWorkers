@@ -206,6 +206,7 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
         _filter = filter;
         _fetching = fetching;
         _onlyNames = null;
+        _roomButNoWay = false;
         Transferred = 0;
 
         List<WorkerChest> chests = WorkerChest.Find(kind, _home(), _radius(), _transform.position);
@@ -230,9 +231,12 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
             return true;
         }
 
-        Reason = noneReason;
+        Reason = _roomButNoWay ? "Could not find a way to " + (kind == ChestKind.Input ? "an input" : "an output") + " chest" : noneReason;
         return false;
     }
+
+    /// <summary>Set while planning a trip when a chest would have done but no way to it was found.</summary>
+    private bool _roomButNoWay;
 
     /// <summary>
     /// Plans one deposit trip, one kind of item at a time, so chests stay organised. For each kind carried, the
@@ -306,6 +310,7 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
         WorkerChest target = chest;
         if (!_navigator.Begin(chest.name, p => WorkerNavigator.ClosestPointOnColliders(target.gameObject, p)))
         {
+            _roomButNoWay = true;
             return false;
         }
 

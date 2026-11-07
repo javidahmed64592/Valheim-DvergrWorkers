@@ -75,6 +75,12 @@ public abstract class WorkerBrain : MonoBehaviour
         _retrySoon = seconds;
     }
 
+    /// <summary>After a round has ended, start the next one within this many seconds instead of a whole interval later.</summary>
+    protected void StartNextRoundWithin(float seconds)
+    {
+        _nextRound = Mathf.Min(_nextRound, Time.time + seconds);
+    }
+
     /// <summary>Optional reason shown on the bed instead of "Idle", e.g. "Waiting for items in the input chest".</summary>
     protected string IdleNote { get; set; }
 

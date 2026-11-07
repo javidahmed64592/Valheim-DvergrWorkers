@@ -26,6 +26,19 @@ public class WoodcutterWorker : WorkerBrain
     /// <summary>Deliver once this few inventory slots remain.</summary>
     private const int FullSlots = 2;
 
+    /// <summary>
+    /// Target choice is by distance, nudged so the worker finishes what it started (logs and wood lying about count
+    /// as this much closer) and fells trees before wandering off to clear stumps (which count as this much further).
+    /// </summary>
+    private const float CleanupBonus = 6f;
+    private const float StumpPenalty = 12f;
+
+    /// <summary>A target with no standing spot found yet is tried again after this long, while the navmesh catches up.</summary>
+    private const float RetryTargetAfter = 15f;
+
+    /// <summary>When a round stops at TreesPerRound with trees still standing, the next one starts this soon.</summary>
+    private const float MoreTreesDelay = 15f;
+
     private static readonly HashSet<string> WoodItems =
     [
         "$item_wood", "$item_finewood", "$item_corewood", "$item_elderbark", "$item_yggdrasilwood",
@@ -41,7 +54,9 @@ public class WoodcutterWorker : WorkerBrain
     private int _stumpsCleared;
     private int _deliveredThisRound;
     private int _deliveredLastRound;
+    private bool _deliveryBlocked;
     private readonly HashSet<GameObject> _failed = [];
+    private readonly Dictionary<GameObject, float> _skipUntil = [];
 
     internal override WorkerRole Role => WorkerRoles.Woodcutter;
 
@@ -108,6 +123,8 @@ public class WoodcutterWorker : WorkerBrain
     protected override bool BeginRound()
     {
         _failed.Clear();
+        _skipUntil.Clear();
+        _deliveryBlocked = false;
         _treesChopped = 0;
         _stumpsCleared = 0;
         _deliveredThisRound = 0;
@@ -196,10 +213,11 @@ public class WoodcutterWorker : WorkerBrain
             return Abort("Inventory full");
         }
 
-        if (carryingWood && (_deliverFirst || carried.GetEmptySlots() <= FullSlots))
+        bool low = carried.GetEmptySlots() <= FullSlots;
+        if (carryingWood && (low || (_deliverFirst && !_deliveryBlocked)))
         {
             _deliverFirst = false;
-            return StartDelivery();
+            return StartDelivery(canWait: !low);
         }
 
         if (ChooseTarget(out GameObject target, out TargetKind kind))
@@ -219,8 +237,9 @@ public class WoodcutterWorker : WorkerBrain
             }
             else
             {
-                DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to " + target.name + ", skipping");
-                _ = _failed.Add(target);
+                // Often just the navmesh there not being built yet: look again in a little while.
+                DvergrWorkersPlugin.Log.LogInfo("No reachable spot next to " + target.name + " yet, trying others first");
+                _skipUntil[target] = Time.time + RetryTargetAfter;
             }
             return true;
         }
@@ -228,69 +247,58 @@ public class WoodcutterWorker : WorkerBrain
         // Nothing left to cut or collect.
         if (carryingWood)
         {
-            return StartDelivery();
+            return StartDelivery(canWait: false);
         }
+        bool moreTrees = _treesChopped >= WorkerConfig.TreesPerRound.Value;
         EndRound(finished: true);
+        if (moreTrees)
+        {
+            StartNextRoundWithin(MoreTreesDelay);
+        }
         return false;
     }
 
-    /// <summary>Logs first, then loose wood, then the next standing tree. Nearest of each first.</summary>
+    /// <summary>
+    /// The closest thing worth doing: a log, wood lying on the ground, a standing tree or a stump. Logs and loose
+    /// wood count as a little closer so the worker finishes what it felled; stumps as further, so it fells trees
+    /// before going off to tidy up.
+    /// </summary>
     private bool ChooseTarget(out GameObject target, out TargetKind kind)
     {
         Vector3 from = transform.position;
         int toolTier = Equipment.ToolTier;
 
         target = null;
-        kind = TargetKind.Log;
+        kind = TargetKind.Tree;
         float best = float.MaxValue;
 
         foreach (TreeLog log in FindObjectsByType<TreeLog>(FindObjectsSortMode.None))
         {
-            Consider(log.gameObject, log.m_minToolTier <= toolTier, from, ref best, ref target);
+            Consider(log.gameObject, TargetKind.Log, log.m_minToolTier <= toolTier, from, -CleanupBonus, ref best, ref target, ref kind);
         }
-        if (target != null)
-        {
-            return true;
-        }
-
-        kind = TargetKind.Drop;
         foreach (ItemDrop drop in ItemDrop.s_instances)
         {
             if (drop != null && IsWood(drop.m_itemData))
             {
-                Consider(drop.gameObject, true, from, ref best, ref target);
+                Consider(drop.gameObject, TargetKind.Drop, true, from, -CleanupBonus, ref best, ref target, ref kind);
             }
         }
-        if (target != null)
-        {
-            return true;
-        }
-
-        // Clear leftover stumps before felling anything new, so the area ends up tidier than it started.
-        kind = TargetKind.Stump;
         if (_stumpsCleared < WorkerConfig.StumpsPerRound.Value)
         {
             foreach (Destructible stump in FindObjectsByType<Destructible>(FindObjectsSortMode.None))
             {
                 if (IsStump(stump))
                 {
-                    Consider(stump.gameObject, stump.m_minToolTier <= toolTier, from, ref best, ref target);
+                    Consider(stump.gameObject, TargetKind.Stump, stump.m_minToolTier <= toolTier, from, StumpPenalty, ref best, ref target, ref kind);
                 }
             }
-            if (target != null)
+        }
+        if (_treesChopped < WorkerConfig.TreesPerRound.Value)
+        {
+            foreach (TreeBase tree in FindObjectsByType<TreeBase>(FindObjectsSortMode.None))
             {
-                return true;
+                Consider(tree.gameObject, TargetKind.Tree, tree.m_minToolTier <= toolTier, from, 0f, ref best, ref target, ref kind);
             }
-        }
-
-        kind = TargetKind.Tree;
-        if (_treesChopped >= WorkerConfig.TreesPerRound.Value)
-        {
-            return false;
-        }
-        foreach (TreeBase tree in FindObjectsByType<TreeBase>(FindObjectsSortMode.None))
-        {
-            Consider(tree.gameObject, tree.m_minToolTier <= toolTier, from, ref best, ref target);
         }
         return target != null;
     }
@@ -322,17 +330,20 @@ public class WoodcutterWorker : WorkerBrain
         return WorkerNavigator.ClosestPointOnColliders(target, from);
     }
 
-    private void Consider(GameObject go, bool usable, Vector3 from, ref float best, ref GameObject target)
+    private void Consider(GameObject go, TargetKind candidateKind, bool usable, Vector3 from, float bias,
+        ref float best, ref GameObject target, ref TargetKind kind)
     {
-        if (!usable || !IsAlive(go) || _failed.Contains(go) || !InJobArea(go.transform.position))
+        if (!usable || !IsAlive(go) || _failed.Contains(go) || !InJobArea(go.transform.position)
+            || (_skipUntil.TryGetValue(go, out float until) && Time.time < until))
         {
             return;
         }
-        float d = Vector3.Distance(go.transform.position, from);
-        if (d < best)
+        float score = Vector3.Distance(go.transform.position, from) + bias;
+        if (score < best)
         {
-            best = d;
+            best = score;
             target = go;
+            kind = candidateKind;
         }
     }
 
@@ -464,7 +475,12 @@ public class WoodcutterWorker : WorkerBrain
 
     // ---------------------------------------------------------------- delivery
 
-    private bool StartDelivery()
+    /// <summary>
+    /// Heads for a chest with the wood. If no chest will take it right now and <paramref name="canWait"/> (there is
+    /// still room in the inventory), the worker keeps the wood and carries on cutting, and tries again once its
+    /// inventory is nearly full, rather than giving up on the whole round.
+    /// </summary>
+    private bool StartDelivery(bool canWait)
     {
         if (!CarryingWood())
         {
@@ -474,6 +490,13 @@ public class WoodcutterWorker : WorkerBrain
 
         if (!Logistics.BeginDeposit(IsWood))
         {
+            if (canWait)
+            {
+                DvergrWorkersPlugin.Log.LogInfo("Woodcutter keeps its wood for now: " + Logistics.Reason);
+                _deliveryBlocked = true;
+                _phase = Phase.Plan;
+                return true;
+            }
             return Abort(Logistics.Reason);
         }
 
@@ -494,16 +517,24 @@ public class WoodcutterWorker : WorkerBrain
         }
 
         _deliveredThisRound += Logistics.Transferred;
+        bool low = Logistics.Carried.GetEmptySlots() <= FullSlots;
         if (Logistics.Transferred == 0)
         {
+            if (!low)
+            {
+                _deliveryBlocked = true;
+                _phase = Phase.Plan;
+                return true;
+            }
             return Abort("Output chests are full");
         }
 
-        // Still carrying wood: the chest filled up, so try the next closest one.
+        // Still carrying wood (another kind, or the chest filled up): try the next chest for it.
         if (CarryingWood())
         {
-            return StartDelivery();
+            return StartDelivery(canWait: !low);
         }
+        _deliveryBlocked = false;
         _phase = Phase.Plan;
         return true;
     }
