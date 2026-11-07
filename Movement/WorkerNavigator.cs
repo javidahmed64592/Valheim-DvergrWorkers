@@ -37,6 +37,17 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private const float EyeHeight = 1.5f;
     private const float ToleranceFactor = 1.25f;
 
+    /// <summary>Seconds allowed per metre of path on top of a fixed allowance, so a long walk is not cut short.</summary>
+    private const float SecondsPerMetre = 0.75f;
+    private const float WalkAllowance = 10f;
+
+    /// <summary>
+    /// Vanilla MoveTo reports "arrived" when it has no path, which is normal for a few seconds while the game builds
+    /// the navmesh around somewhere new. Wait this long for a path before steering straight for the spot instead.
+    /// </summary>
+    private const float NoPathWait = 6f;
+    private const float ArriveSlack = 1f;
+
     private readonly Transform _transform = ai.transform;
     private readonly Character _character = character;
     private readonly MonsterAI _ai = ai;
@@ -51,6 +62,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private float _reach;
     private Vector3 _standPoint;
     private float _walkTimer;
+    private float _walkLimit = WalkTimeout;
+    private float _noPathTimer;
+    private float _pathLength;
     private float _stuckTimer;
     private Vector3 _stuckSamplePos;
     private int _stuckStrikes;
@@ -111,6 +125,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
 
         ResetWalk();
+        _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (_pathLength * SecondsPerMetre));
         return true;
     }
 
@@ -127,11 +142,13 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _reach = tolerance;
         _standPoint = point;
         ResetWalk();
+        _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (Vector3.Distance(_transform.position, point) * 1.5f * SecondsPerMetre));
     }
 
     private void ResetWalk()
     {
         _walkTimer = 0f;
+        _noPathTimer = 0f;
         _stuckTimer = 0f;
         _stuckStrikes = 0;
         _escapes = 0;
@@ -153,18 +170,31 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         if (Time.time < _escapeUntil)
         {
             _ai.MoveTowards(_escapeDir, false);
-            if (_walkTimer <= WalkTimeout)
+            if (_walkTimer <= _walkLimit)
             {
                 return NavResult.Moving;
             }
         }
 
         // Path following first; once stuck, fall back to steering with obstacle avoidance.
-        bool arrived = _stuckStrikes >= 1
-            ? _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false)
-            : _ai.MoveTo(dt, _standPoint, 0.6f, false);
+        bool waitingForPath = false;
+        bool arrived = _stuckStrikes >= 1 ? SteerDirect(dt) : _ai.MoveTo(dt, _standPoint, 0.6f, false);
+        if (arrived && Utils.DistanceXZ(_transform.position, _standPoint) > ArriveSlack)
+        {
+            // Not really there: MoveTo found no path. Give the navmesh a moment, then head straight for the spot.
+            arrived = false;
+            _noPathTimer += dt;
+            if (_noPathTimer < NoPathWait)
+            {
+                waitingForPath = true;
+            }
+            else
+            {
+                arrived = SteerDirect(dt);
+            }
+        }
 
-        _stuckTimer += dt;
+        _stuckTimer = waitingForPath ? 0f : _stuckTimer + dt;
         if (_stuckTimer >= StuckSampleInterval)
         {
             // Movement is locked while an attack animation plays, so that is waiting, not being stuck.
@@ -181,7 +211,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             }
         }
 
-        if (!arrived && _walkTimer <= WalkTimeout && _stuckStrikes < StuckStrikesToGiveUp)
+        if (!arrived && _walkTimer <= _walkLimit && _stuckStrikes < StuckStrikesToGiveUp)
         {
             return NavResult.Moving;
         }
@@ -205,6 +235,19 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         return NavResult.Failed;
     }
 
+    /// <summary>Steers straight for the standing spot around obstacles, but never into water.</summary>
+    private bool SteerDirect(float dt)
+    {
+        Vector3 dir = _standPoint - _transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude > 1f && IsWaterAhead(_transform.position + (dir.normalized * 1.5f)))
+        {
+            _ai.StopMoving();
+            return false;
+        }
+        return _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false);
+    }
+
     /// <summary>Picks the direction with the most free space (leaning towards the goal) and heads that way briefly.</summary>
     private void StartEscape()
     {
@@ -221,6 +264,11 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             float angle = i * Mathf.PI * 0.25f;
             Vector3 dir = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
             float free = Physics.Raycast(origin, dir, out RaycastHit hit, 2f, _obstacleMask) ? hit.distance : 2f;
+            if (IsWaterAhead(_transform.position + (dir * 2f)))
+            {
+                // Better to stay wedged than to wade into water.
+                continue;
+            }
             float score = free + (0.5f * Vector3.Dot(dir, toGoal));
             if (score > bestScore)
             {
@@ -245,6 +293,44 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
         DvergrWorkersPlugin.Log.LogInfo("Stuck heading for " + _targetName + " at " + _transform.position
             + ", escaping (touching: " + string.Join(", ", touching) + ")");
+    }
+
+    /// <summary>True if a standing point (the top of the ground or a floor) is below a water surface.</summary>
+    public static bool IsUnderwater(Vector3 point)
+    {
+        return Floating.GetLiquidLevel(point) > point.y;
+    }
+
+    /// <summary>True if whatever a worker would stand on at this spot (ground, or a floor over water) is under water.</summary>
+    private bool IsWaterAhead(Vector3 flat)
+    {
+        return Physics.Raycast(flat + (Vector3.up * 2f), Vector3.down, out RaycastHit hit, 6f, _groundMask) && IsUnderwater(hit.point);
+    }
+
+    /// <summary>
+    /// Finds the nearest dry ground around a worker that has ended up in water (knocked back, spawned on a
+    /// flooded spot...), so it can climb straight out instead of waiting for a path that the navmesh will not give.
+    /// </summary>
+    public bool FindShore(float maxDistance, out Vector3 shore)
+    {
+        Vector3 here = _transform.position;
+        for (float radius = 2f; radius <= maxDistance; radius += 2f)
+        {
+            int angles = Mathf.Max(8, Mathf.RoundToInt(radius * 2f));
+            for (int a = 0; a < angles; a++)
+            {
+                float rad = a * Mathf.PI * 2f / angles;
+                Vector3 flat = here + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
+                if (Physics.Raycast(new Vector3(flat.x, here.y + 10f, flat.z), Vector3.down, out RaycastHit hit, 30f, _groundMask)
+                    && !IsUnderwater(hit.point))
+                {
+                    shore = hit.point;
+                    return true;
+                }
+            }
+        }
+        shore = Vector3.zero;
+        return false;
     }
 
     private static Vector3 Chest(Vector3 feet)
@@ -302,8 +388,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private bool FindStandPoint(out Vector3 best, bool strict)
     {
         best = Vector3.zero;
+        _pathLength = 0f;
         Vector3 here = _transform.position;
-        if (InReach(here))
+        if (InReach(here) || (!strict && Gap(here) <= _reach * ToleranceFactor))
         {
             best = here;
             return true;
@@ -319,7 +406,8 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             {
                 float rad = a * Mathf.PI * 2f / angles;
                 Vector3 candidate = target + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
-                if (Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask))
+                if (Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask)
+                    && !IsUnderwater(hit.point))
                 {
                     _candidates.Add(hit.point);
                 }
@@ -361,6 +449,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             if (length < bestLength)
             {
                 bestLength = length;
+                _pathLength = length;
                 best = end;
                 found = true;
             }
@@ -395,6 +484,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             if (gap < bestGap)
             {
                 bestGap = gap;
+                _pathLength = PathLength(_pathScratch);
                 best = end;
                 found = true;
             }

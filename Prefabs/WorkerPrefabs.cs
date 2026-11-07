@@ -125,6 +125,12 @@ internal static class WorkerPrefabs
         }
 
         clone.GetComponent<Character>().m_name = role.WorkerName;
+
+        // Workers have no business in water. This navmesh treats the water surface as solid wall, so no path
+        // (to a task, a stroll spot or an enemy) ever leads into a lake or the sea, however shallow.
+        MonsterAI ai = clone.GetComponent<MonsterAI>();
+        ai.m_pathAgentType = Pathfinding.AgentType.HumanoidAvoidWater;
+        ai.m_avoidWater = true;
         _ = clone.AddComponent(role.BrainType);
 
         PrefabManager.Instance.AddPrefab(clone);

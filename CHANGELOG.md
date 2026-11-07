@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.13.0
+
+Workers no longer drop their task just because an enemy is around.
+
+- A worker only stops working to defend the base when an enemy actually hurts someone close by: the worker itself, another worker or a player within `ThreatRadius`. An enemy that is merely nearby, or that has spotted someone but not attacked, no longer interrupts anyone, so a neck in the river or a greyling at the edge of the base leaves the work going. Damage that does not come from an enemy, such as falling, no longer interrupts a worker either. This works the same in multiplayer, whichever player's game is running the worker.
+- The training dummy is no longer treated as an enemy, so a worker next to one keeps working and does not attack it.
+- When a worker's round is cut short, the reason is written to the BepInEx log (which enemy hurt whom, how long ago and how far away, or nightfall).
+- Workers stay out of water. Their paths never lead into a lake, river or the sea, not even shallow water, and they do not pick spots in water to stand on while working or strolling. A worker that ends up in the water anyway (knocked back by an enemy, say) climbs straight out at the nearest dry ground.
+- Workers give up on far fewer tasks. When the game had not yet worked out paths around a place (it does that on demand, which takes a few seconds), a worker would take the missing path as "arrived", find itself nowhere near, and write the spot off as unreachable for five minutes. Now it waits for the path, then heads straight there if none comes. Long walks are also given time in proportion to their length instead of a fixed 25 seconds.
+- The Woodcutter Worker is much keener:
+  - It goes for whatever is closest: a tree, a log or wood on the ground. It no longer walks past standing trees to reach a log or stump on the far side of its area. It still finishes chopping up and collecting a tree it felled, and it fells trees before clearing stumps.
+  - A tree it could not find a way to is tried again after a few seconds, instead of being skipped for the rest of the round.
+  - If an output chest will not take some of its wood, it keeps that wood and carries on cutting, trying again once its inventory is nearly full. Before, it gave up the whole round, and as it started every round by delivering, it could end up never cutting at all.
+  - When a round ends because it has felled `TreesPerRound` trees, the next round starts after 15 seconds instead of a whole task interval.
+- When a worker cannot get to a chest, its bed now says so ("Could not find a way to an output chest") instead of claiming the chests are full.
+- Removed the `NoticeRadius` config option, which no longer has any effect.
+
 ## 0.12.0
 
 Workers now tidy up and use items lying on the ground, so you no longer have to carry everything to the input chest.
