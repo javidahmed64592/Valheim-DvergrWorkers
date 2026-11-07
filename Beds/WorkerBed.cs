@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using DvergrWorkers.Core;
+using DvergrWorkers.Finder;
 using DvergrWorkers.Logistics;
 using DvergrWorkers.Prefabs;
 
@@ -26,6 +27,14 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
     public const string HomeKey = "DW_Home";
     public const string StatusKey = "DW_Status";
 
+    /// <summary>
+    /// Set by a player (Shift+E on the bed or the worker): the worker finishes the round it is on and then
+    /// starts no more until it is cleared. Kept on the bed so it survives the worker dying and respawning.
+    /// </summary>
+    public const string PausedKey = "DW_Paused";
+
+    private const string SetPausedRpc = "DW_SetPaused";
+
     private static readonly List<WorkerBed> Instances = [];
 
     /// <summary>Serialized so it survives the prefab being instantiated; see <see cref="Role"/>.</summary>
@@ -48,6 +57,43 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         if (_nview != null && _nview.GetZDO() != null)
         {
             Instances.Add(this);
+            _nview.Register<bool>(SetPausedRpc, RPC_SetPaused);
+        }
+    }
+
+    /// <summary>True if a player has told this bed's worker to stop starting new rounds.</summary>
+    public bool IsPaused => _nview != null && _nview.IsValid() && _nview.GetZDO().GetBool(PausedKey, false);
+
+    /// <summary>
+    /// Flips <see cref="IsPaused"/> for whoever asked. Only the bed's owner writes its ZDO, so the change goes
+    /// through an RPC rather than being set here.
+    /// </summary>
+    internal void TogglePaused(Humanoid user)
+    {
+        if (_nview == null || !_nview.IsValid() || !PrivateArea.CheckAccess(transform.position))
+        {
+            return;
+        }
+
+        bool paused = !IsPaused;
+        _nview.InvokeRPC(SetPausedRpc, paused);
+
+        string message = "The " + Role.WorkerName + " is back to work";
+        if (paused)
+        {
+            WorkerBrain worker = WorkerBrain.FindLoaded(BedId);
+            message = worker != null && worker.IsWorking
+                ? "The " + Role.WorkerName + " will take a break after this round"
+                : "The " + Role.WorkerName + " is taking a break";
+        }
+        user.Message(MessageHud.MessageType.Center, message);
+    }
+
+    private void RPC_SetPaused(long sender, bool paused)
+    {
+        if (_nview.IsOwner())
+        {
+            _nview.GetZDO().Set(PausedKey, paused);
         }
     }
 
@@ -407,12 +453,68 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
     public string GetHoverText()
     {
         string status = "No worker";
+        string lines = "";
+        WorkerBrain worker = null;
         if (_nview != null && _nview.IsValid())
         {
-            WorkerBrain worker = WorkerBrain.FindLoaded(BedId);
+            worker = WorkerBrain.FindLoaded(BedId);
             status = worker != null ? worker.GetStatus() : "Waiting for a worker";
+            lines = PauseLine(worker) + WhereLine(worker);
         }
-        return Role.Title + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + ChestLines();
+
+        string text = Role.Title + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + lines + ChestLines();
+        if (worker != null)
+        {
+            text += "\n[<color=yellow><b>$KEY_Use</b></color>] " + (WorkerFinder.IsFinding(BedId) ? "Stop showing the way" : "Show the way to the worker");
+        }
+        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (IsPaused ? "Back to work" : "Take a break");
+        return Localization.instance.Localize(text);
+    }
+
+    internal static string BreakColour => "#e8c06a";
+
+    /// <summary>A reminder that the worker is on a break, or about to be once the round it is on is done.</summary>
+    private string PauseLine(WorkerBrain worker)
+    {
+        if (!IsPaused)
+        {
+            return "";
+        }
+        string note = worker != null && worker.IsWorking ? "Taking a break after this round" : "On a break: no new rounds until told";
+        return "\n<color=" + BreakColour + ">" + note + "</color>";
+    }
+
+    /// <summary>Which way the worker is from the bed, e.g. "Worker: 23 m north-east, 4 m above".</summary>
+    private string WhereLine(WorkerBrain worker)
+    {
+        if (worker == null)
+        {
+            return "";
+        }
+
+        Vector3 offset = worker.transform.position - transform.position;
+        float distance = Utils.DistanceXZ(worker.transform.position, transform.position);
+        if (distance < 2f && Mathf.Abs(offset.y) < 2f)
+        {
+            return "\n<color=#cccccc>Worker: right here</color>";
+        }
+
+        string where = distance < 2f ? "" : Mathf.RoundToInt(distance) + " m " + Compass(offset);
+        if (Mathf.Abs(offset.y) >= 2f)
+        {
+            where += (where.Length > 0 ? ", " : "") + Mathf.RoundToInt(Mathf.Abs(offset.y)) + " m " + (offset.y > 0f ? "above" : "below");
+        }
+        return "\n<color=#cccccc>Worker: " + where + "</color>";
+    }
+
+    private static readonly string[] CompassPoints = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+
+    /// <summary>The compass direction of a horizontal offset; the world's +z is north, as on the map.</summary>
+    internal static string Compass(Vector3 offset)
+    {
+        float bearing = Mathf.Atan2(offset.x, offset.z) * Mathf.Rad2Deg;
+        int sector = Mathf.RoundToInt(Mathf.Repeat(bearing, 360f) / 45f) % 8;
+        return CompassPoints[sector];
     }
 
     /// <summary>For roles that need chests: how many are in range, in red when a required kind is missing.</summary>
@@ -444,11 +546,21 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         return Role.BedName;
     }
 
+    /// <summary>E shows the way to the worker; Shift+E sends it on a break or back to work.</summary>
     public bool Interact(Humanoid user, bool hold, bool alt)
     {
-        if (!hold)
+        if (hold)
         {
-            user.Message(MessageHud.MessageType.Center, "This bed belongs to a Dvergr.");
+            return false;
+        }
+
+        if (alt)
+        {
+            TogglePaused(user);
+        }
+        else
+        {
+            WorkerFinder.Toggle(this, user);
         }
         return false;
     }

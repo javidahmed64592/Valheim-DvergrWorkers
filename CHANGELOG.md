@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0
+
+You can now send workers on a break, and find them when you lose track of them.
+
+- Press **Shift+E** on a worker's bed, or on the worker itself, to send it on a break: it finishes the round it is on and then starts no new ones, e.g. so the woodcutter stops filling chests with wood you do not need yet. It still strolls about, sleeps at night and defends the base. Press **Shift+E** again to send it back to work. The bed and the worker say when it is on a break, or will be after its current round. The break is saved on the bed, so it lasts through the worker respawning and the world being reloaded. Anyone who could open a chest there (wards permitting) can do this.
+- The bed's hover text says which way the worker is from the bed, e.g. "Worker: 23 m north-east, 4 m above".
+- Press **E** on a worker's bed to be shown the way to it. A green arrow on the HUD sits over the worker, through walls, with its name and distance, and clings to the edge of the screen pointing the way when the worker is off screen. A trail of green arrows on the ground leads from you to the worker along the path you would walk, and the worker glows green. It stops once you reach the worker, when you press **E** on the bed again, or after three minutes. Only you see it.
+- Looking at a worker now shows its status at the crosshair, as its bed does.
+- New config options in `[Finder]`: `ArriveDistance` (default 3 metres), `Timeout` (default 180 seconds, 0 for none), `ShowTrail` and `Glow`.
+
 ## 0.13.0
 
 Workers no longer drop their task just because an enemy is around.
