@@ -221,6 +221,11 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             float angle = i * Mathf.PI * 0.25f;
             Vector3 dir = new(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
             float free = Physics.Raycast(origin, dir, out RaycastHit hit, 2f, _obstacleMask) ? hit.distance : 2f;
+            if (IsWaterAhead(_transform.position + (dir * 2f)))
+            {
+                // Better to stay wedged than to wade into water.
+                continue;
+            }
             float score = free + (0.5f * Vector3.Dot(dir, toGoal));
             if (score > bestScore)
             {
@@ -245,6 +250,44 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
         DvergrWorkersPlugin.Log.LogInfo("Stuck heading for " + _targetName + " at " + _transform.position
             + ", escaping (touching: " + string.Join(", ", touching) + ")");
+    }
+
+    /// <summary>True if a standing point (the top of the ground or a floor) is below a water surface.</summary>
+    public static bool IsUnderwater(Vector3 point)
+    {
+        return Floating.GetLiquidLevel(point) > point.y;
+    }
+
+    /// <summary>True if whatever a worker would stand on at this spot (ground, or a floor over water) is under water.</summary>
+    private bool IsWaterAhead(Vector3 flat)
+    {
+        return Physics.Raycast(flat + (Vector3.up * 2f), Vector3.down, out RaycastHit hit, 6f, _groundMask) && IsUnderwater(hit.point);
+    }
+
+    /// <summary>
+    /// Finds the nearest dry ground around a worker that has ended up in water (knocked back, spawned on a
+    /// flooded spot...), so it can climb straight out instead of waiting for a path that the navmesh will not give.
+    /// </summary>
+    public bool FindShore(float maxDistance, out Vector3 shore)
+    {
+        Vector3 here = _transform.position;
+        for (float radius = 2f; radius <= maxDistance; radius += 2f)
+        {
+            int angles = Mathf.Max(8, Mathf.RoundToInt(radius * 2f));
+            for (int a = 0; a < angles; a++)
+            {
+                float rad = a * Mathf.PI * 2f / angles;
+                Vector3 flat = here + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
+                if (Physics.Raycast(new Vector3(flat.x, here.y + 10f, flat.z), Vector3.down, out RaycastHit hit, 30f, _groundMask)
+                    && !IsUnderwater(hit.point))
+                {
+                    shore = hit.point;
+                    return true;
+                }
+            }
+        }
+        shore = Vector3.zero;
+        return false;
     }
 
     private static Vector3 Chest(Vector3 feet)
@@ -319,7 +362,8 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             {
                 float rad = a * Mathf.PI * 2f / angles;
                 Vector3 candidate = target + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
-                if (Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask))
+                if (Physics.Raycast(candidate + Vector3.up, Vector3.down, out RaycastHit hit, 20f, _groundMask)
+                    && !IsUnderwater(hit.point))
                 {
                     _candidates.Add(hit.point);
                 }

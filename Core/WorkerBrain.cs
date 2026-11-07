@@ -43,6 +43,9 @@ public abstract class WorkerBrain : MonoBehaviour
     private float _nextRound;
     private float _retrySoon;
     private float _threatTimer;
+    private float _shoreTimer;
+    private bool _hasShore;
+    private Vector3 _shore;
     private float _bedCheckTimer;
     private int _bedMissingChecks;
     private bool _threatened;
@@ -229,6 +232,11 @@ public abstract class WorkerBrain : MonoBehaviour
         if (!CheckBelongsToBed(dt))
         {
             return false;
+        }
+
+        if (LeaveWater(dt))
+        {
+            return true;
         }
 
         UpdateThreat(dt);
@@ -428,6 +436,40 @@ public abstract class WorkerBrain : MonoBehaviour
                 + Format(Vector3.Distance(other.transform.position, transform.position)) + "m away";
             return;
         }
+    }
+
+    private const float ShoreSearchDistance = 30f;
+    private const float ShoreSearchInterval = 2f;
+
+    /// <summary>
+    /// A worker that ends up swimming (knocked back by an enemy, pushed by a player) climbs out at the nearest
+    /// dry ground, whatever it was doing. Paths never lead into water, so this is the only way it is ever in it.
+    /// </summary>
+    private bool LeaveWater(float dt)
+    {
+        if (!Character.IsSwimming())
+        {
+            _hasShore = false;
+            _shoreTimer = 0f;
+            return false;
+        }
+
+        _shoreTimer -= dt;
+        if (_shoreTimer <= 0f)
+        {
+            _shoreTimer = ShoreSearchInterval;
+            _hasShore = Navigator.FindShore(ShoreSearchDistance, out _shore);
+        }
+        if (!_hasShore)
+        {
+            return false;
+        }
+
+        Vector3 toShore = _shore - transform.position;
+        toShore.y = 0f;
+        Ai.MoveTowards(toShore.normalized, true);
+        SetStatus("Getting out of the water");
+        return true;
     }
 
     private string Describe(Character other)
