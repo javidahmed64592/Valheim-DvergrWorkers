@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+Workers no longer drop their task just because an enemy is around.
+
+- A worker only stops working to defend the base when an enemy actually hurts someone close by: the worker itself, another worker or a player within `ThreatRadius`. An enemy that is merely nearby, or that has spotted someone but not attacked, no longer interrupts anyone, so a neck in the river or a greyling at the edge of the base leaves the work going. Damage that does not come from an enemy, such as falling, no longer interrupts a worker either. This works the same in multiplayer, whichever player's game is running the worker.
+- The training dummy is no longer treated as an enemy, so a worker next to one keeps working and does not attack it.
+- When a worker's round is cut short, the reason is written to the BepInEx log (which enemy hurt whom, how long ago and how far away, or nightfall).
+- Removed the `NoticeRadius` config option, which no longer has any effect.
+
 ## 0.12.0
 
 Workers now tidy up and use items lying on the ground, so you no longer have to carry everything to the input chest.

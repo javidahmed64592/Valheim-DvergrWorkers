@@ -34,7 +34,7 @@ public abstract class WorkerBrain : MonoBehaviour
     private const float FirstRoundDelay = 10f;
     private const float LeashTolerance = 3f;
 
-    /// <summary>How long after being hurt a worker stays in the vanilla fighting AI.</summary>
+    /// <summary>How long after an enemy hurts a player or worker nearby a worker stays in the vanilla fighting AI.</summary>
     private const float EngagedHold = 8f;
 
     /// <summary>Tasks may slightly exceed the job radius by this much.</summary>
@@ -46,8 +46,7 @@ public abstract class WorkerBrain : MonoBehaviour
     private float _bedCheckTimer;
     private int _bedMissingChecks;
     private bool _threatened;
-    private float _lastHealth;
-    private float _engagedUntil;
+    private string _threatSource = "";
     private bool _hasHome;
     private string _status = "";
 
@@ -154,7 +153,6 @@ public abstract class WorkerBrain : MonoBehaviour
     protected virtual void Start()
     {
         ApplyHome();
-        _lastHealth = Character.GetHealth();
     }
 
     private void LateUpdate()
@@ -234,26 +232,21 @@ public abstract class WorkerBrain : MonoBehaviour
         }
 
         UpdateThreat(dt);
-        bool tookDamage = Character.GetHealth() < _lastHealth - 0.01f;
-        _lastHealth = Character.GetHealth();
         bool restTime = EnvMan.IsNight() && !WorkerConfig.WorkAtNight.Value;
-        if (tookDamage)
-        {
-            _engagedUntil = Time.time + EngagedHold;
-        }
-        bool engaged = _threatened || Time.time < _engagedUntil;
-        if (!engaged && !InRound)
+        if (!_threatened && !InRound)
         {
             ForgetDistantTargets(ai);
         }
+        IgnoreTrainingDummy(ai);
         bool hasTarget = ai.GetTargetCreature() != null || ai.GetStaticTarget() != null;
 
         Equipment.Update(restTime || Sleep.IsAsleep);
 
         if (InRound)
         {
-            if (_threatened || tookDamage || restTime)
+            if (_threatened || restTime)
             {
+                DvergrWorkersPlugin.Log.LogInfo(Role.Name + " interrupted: " + (_threatened ? _threatSource : "night"));
                 EndRound(finished: false);
 
                 // Not the worker's fault the round was cut short: pick the work up again soon rather than a whole interval later.
@@ -271,7 +264,7 @@ public abstract class WorkerBrain : MonoBehaviour
 
         // At night go to bed and lie there until morning; anything dangerous (or daylight) gets us up again.
         bool asleep = Sleep.IsAsleep;
-        bool disturbed = _threatened || tookDamage || (!asleep && (hasTarget || ai.IsAlerted()));
+        bool disturbed = _threatened || (!asleep && (hasTarget || ai.IsAlerted()));
         if (restTime && !disturbed)
         {
             if (Sleep.Rest(dt, BedId, out string sleepStatus))
@@ -286,7 +279,7 @@ public abstract class WorkerBrain : MonoBehaviour
             Sleep.WakeUp(bed != null ? bed.transform.position : Vector3.zero);
         }
 
-        if (_threatened || tookDamage || hasTarget || ai.IsAlerted())
+        if (_threatened || hasTarget || ai.IsAlerted())
         {
             return false;
         }
@@ -313,6 +306,11 @@ public abstract class WorkerBrain : MonoBehaviour
         }
 
         return Idle(dt);
+    }
+
+    private static string Format(float value)
+    {
+        return value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     protected void EndRound(bool finished)
@@ -400,6 +398,11 @@ public abstract class WorkerBrain : MonoBehaviour
         return Utils.DistanceXZ(point, Home) <= WorkerConfig.JobRadius.Value + TaskRadiusTolerance;
     }
 
+    /// <summary>
+    /// A worker only drops what it is doing when an enemy has just hurt someone on its side close by: itself,
+    /// another worker or a player. Enemies that are merely nearby, or that have spotted someone but not attacked
+    /// yet, are left to the players.
+    /// </summary>
     private void UpdateThreat(float dt)
     {
         _threatTimer -= dt;
@@ -413,27 +416,41 @@ public abstract class WorkerBrain : MonoBehaviour
         float range = WorkerConfig.ThreatRadius.Value;
         foreach (Character other in Character.GetAllCharacters())
         {
-            if (other == Character || other.IsDead() || !BaseAI.IsEnemy(Character, other))
+            if (!(other.IsPlayer() || TryGet(other.gameObject, out _))
+                || Vector3.Distance(other.transform.position, transform.position) > range
+                || !EnemyHits.HurtRecently(other, EngagedHold, out float secondsAgo, out string attacker))
             {
                 continue;
             }
-            float distance = Vector3.Distance(other.transform.position, transform.position);
-            if (distance < range && (distance < WorkerConfig.NoticeRadius.Value || IsHuntingUs(other)))
-            {
-                _threatened = true;
-                return;
-            }
+
+            _threatened = true;
+            _threatSource = attacker + " hurt " + Describe(other) + " " + Format(secondsAgo) + "s ago, "
+                + Format(Vector3.Distance(other.transform.position, transform.position)) + "m away";
+            return;
         }
     }
 
-    /// <summary>
-    /// True if the enemy has picked a target on our side (this worker, a player, a tamed animal...). An enemy that
-    /// is merely nearby and has noticed nobody, like a neck in the water or a distant greyling, is left alone.
-    /// </summary>
-    private bool IsHuntingUs(Character enemy)
+    private string Describe(Character other)
     {
-        Character target = enemy.GetBaseAI() is MonsterAI monster ? monster.GetTargetCreature() : null;
-        return target != null && !BaseAI.IsEnemy(Character, target);
+        return other switch
+        {
+            _ when other == Character => "this worker",
+            Player player => player.GetPlayerName(),
+            _ => other.m_name,
+        };
+    }
+
+    /// <summary>
+    /// The training dummy counts as an enemy to the vanilla AI, so a worker defending the base would otherwise
+    /// go and beat on a dummy standing next to its smelter.
+    /// </summary>
+    private static void IgnoreTrainingDummy(MonsterAI ai)
+    {
+        Character target = ai.GetTargetCreature();
+        if (target != null && target.GetFaction() == Character.Faction.TrainingDummy)
+        {
+            ai.m_targetCreature = null;
+        }
     }
 
     /// <summary>
