@@ -9,6 +9,9 @@ You can now send workers on a break, and find them when you lose track of them.
 - Press **E** on a worker's bed to be shown the way to it. A green arrow on the HUD sits over the worker, through walls, with its name and distance, and clings to the edge of the screen pointing the way when the worker is off screen. A trail of green arrows on the ground leads from you to the worker along the path you would walk, and the worker glows green. It stops once you reach the worker, when you press **E** on the bed again, or after three minutes. Only you see it.
 - Looking at a worker now shows its status at the crosshair, as its bed does.
 - New config options in `[Finder]`: `ArriveDistance` (default 3 metres), `Timeout` (default 180 seconds, 0 for none), `ShowTrail` and `Glow`.
+- Fixed the game freezing for about half a second every few seconds near a Tree Farmer Worker, worst with a large `JobRadius` or a short task interval. Looking for somewhere to plant meant a dozen physics and terrain checks on every point of a grid across the whole job area, for each species in turn, twice per round, all in a single frame. The tree farmer now surveys its area a couple of milliseconds per frame in the background and reuses that survey for a minute, finds nearby trees once per frame instead of several times, and checks a spot against only the trees close to it.
+- Fixed the Tree Farmer Worker starting a round every task interval only to end it at once, when a tree seed was lying somewhere it had already failed to reach.
+- An update of a worker that takes long enough to be felt as a stutter is now written to the BepInEx log as a warning, with the worker's role and what it was doing, so any remaining hitches can be tracked down.
 
 ## 0.13.0
 

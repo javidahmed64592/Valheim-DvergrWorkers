@@ -134,6 +134,14 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         return "Idle";
     }
 
+    /// <summary>
+    /// Called every frame on the worker's owner, working or not, for work a role spreads over many frames
+    /// (such as surveying its area) so that no single frame takes long.
+    /// </summary>
+    protected virtual void BackgroundWork(float dt)
+    {
+    }
+
     /// <summary>Called once a round ends, whether it finished or was interrupted.</summary>
     protected virtual void OnRoundEnded(bool finished)
     {
@@ -203,8 +211,37 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
 
     // ------------------------------------------------------------ main loop
 
-    /// <summary>Returns true if this frame's AI update was handled and the vanilla AI should be skipped.</summary>
+    /// <summary>A worker's update taking longer than this (milliseconds) is reported in the log as a hitch.</summary>
+    private const double SlowTickMs = 30.0;
+
+    /// <summary>Hitches are reported at most this often (seconds) per worker, so a stuck slow path cannot flood the log.</summary>
+    private const float SlowTickReportInterval = 10f;
+
+    private static readonly System.Diagnostics.Stopwatch TickWatch = new();
+    private float _nextSlowReport;
+
+    /// <summary>
+    /// Returns true if this frame's AI update was handled and the vanilla AI should be skipped. Updates that take
+    /// long enough to be felt as a stutter are written to the log with what the worker was doing, so a hitch can be
+    /// traced to its cause.
+    /// </summary>
     public bool Tick(MonsterAI ai, float dt)
+    {
+        string before = _status;
+        TickWatch.Restart();
+        bool handled = TickCore(ai, dt);
+        double ms = TickWatch.Elapsed.TotalMilliseconds;
+        if (ms > SlowTickMs && Time.time >= _nextSlowReport)
+        {
+            _nextSlowReport = Time.time + SlowTickReportInterval;
+            string status = _status == before ? "\"" + before + "\"" : "\"" + before + "\" -> \"" + _status + "\"";
+            DvergrWorkersPlugin.Log.LogWarning("Slow update: " + Role.Name + " worker took " + Format((float)ms) + " ms ("
+                + (InRound ? "in a round" : "between rounds") + ", status " + status + ")");
+        }
+        return handled;
+    }
+
+    private bool TickCore(MonsterAI ai, float dt)
     {
         if (Nview == null || !Nview.IsValid() || !Nview.IsOwner())
         {
@@ -239,6 +276,8 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         {
             return false;
         }
+
+        BackgroundWork(dt);
 
         if (LeaveWater(dt))
         {

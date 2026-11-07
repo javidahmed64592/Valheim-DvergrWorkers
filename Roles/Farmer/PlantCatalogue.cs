@@ -103,7 +103,11 @@ internal static class PlantCatalogue
     /// </summary>
     public static bool BiomeAllows(PlantType type, Vector3 p)
     {
-        Heightmap.Biome biome = Heightmap.FindBiome(p);
+        return BiomeAllows(type, Heightmap.FindBiome(p));
+    }
+
+    public static bool BiomeAllows(PlantType type, Heightmap.Biome biome)
+    {
         return (type.Piece.m_onlyInBiome == Heightmap.Biome.None || (biome & type.Piece.m_onlyInBiome) != 0)
             && (biome & type.Plant.m_biome) != 0;
     }
