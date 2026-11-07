@@ -11,7 +11,11 @@ You can now send workers on a break, and find them when you lose track of them.
 - New config options in `[Finder]`: `ArriveDistance` (default 3 metres), `Timeout` (default 180 seconds, 0 for none), `ShowTrail` and `Glow`.
 - Fixed the game freezing for about half a second every few seconds near a Tree Farmer Worker, worst with a large `JobRadius` or a short task interval. Looking for somewhere to plant meant a dozen physics and terrain checks on every point of a grid across the whole job area, for each species in turn, twice per round, all in a single frame. The tree farmer now surveys its area a couple of milliseconds per frame in the background and reuses that survey for a minute, finds nearby trees once per frame instead of several times, and checks a spot against only the trees close to it.
 - Fixed the Tree Farmer Worker starting a round every task interval only to end it at once, when a tree seed was lying somewhere it had already failed to reach.
-- An update of a worker that takes long enough to be felt as a stutter is now written to the BepInEx log as a warning, with the worker's role and what it was doing, so any remaining hitches can be tracked down.
+- Fixed shorter stutters from the other workers, again worst with a large `JobRadius`:
+  - Workers no longer search every object in the loaded world whenever they decide what to do next (every tree, rock and bush for the woodcutter, every pickable for the farmer). The objects they care about are now noted as they load in, which also cuts the garbage that causes stutters of its own.
+  - The Farmer Worker looked for free tilled soil by checking every point of a one-metre grid across its whole job area, tens of thousands of points with a large radius, all in one frame. Like the tree farmer, it now surveys its area a little each frame in the background, redone every 20 seconds so newly tilled soil is still planted soon.
+  - Finding a place to stand next to something no one can reach (a log behind a wall, a seed on a roof) cost up to 14 path searches; workers now give up after a few that fall short, and each search does double duty as a fallback. Checking planting spots is also capped at a few milliseconds per planning pass, after which the farmers look again shortly.
+- Slow worker updates are written to the BepInEx log as warnings, with the worker's role, what it was doing, how much of the time went on pathfinding, whether a garbage collection happened, and how many other slow updates there were since the last warning.
 
 ## 0.13.0
 

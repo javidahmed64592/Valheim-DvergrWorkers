@@ -228,17 +228,46 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
     public bool Tick(MonsterAI ai, float dt)
     {
         string before = _status;
+        int paths = WorkerPaths.Queries;
+        double pathMs = WorkerPaths.Milliseconds;
+        int collections = GC.CollectionCount(0);
         TickWatch.Restart();
+
         bool handled = TickCore(ai, dt);
+
         double ms = TickWatch.Elapsed.TotalMilliseconds;
-        if (ms > SlowTickMs && Time.time >= _nextSlowReport)
+        if (ms > SlowTickMs)
         {
-            _nextSlowReport = Time.time + SlowTickReportInterval;
-            string status = _status == before ? "\"" + before + "\"" : "\"" + before + "\" -> \"" + _status + "\"";
-            DvergrWorkersPlugin.Log.LogWarning("Slow update: " + Role.Name + " worker took " + Format((float)ms) + " ms ("
-                + (InRound ? "in a round" : "between rounds") + ", status " + status + ")");
+            ReportSlowTick(ms, before, WorkerPaths.Queries - paths, WorkerPaths.Milliseconds - pathMs, GC.CollectionCount(0) - collections);
         }
         return handled;
+    }
+
+    /// <summary>Slow updates not written to the log since the last one that was, so a burst of them still shows.</summary>
+    private int _slowTicksUnreported;
+
+    private void ReportSlowTick(double ms, string before, int paths, double pathMs, int collections)
+    {
+        if (Time.time < _nextSlowReport)
+        {
+            _slowTicksUnreported++;
+            return;
+        }
+        _nextSlowReport = Time.time + SlowTickReportInterval;
+
+        string status = _status == before ? "\"" + before + "\"" : "\"" + before + "\" -> \"" + _status + "\"";
+        string details = paths > 0 ? paths + " path queries " + Format((float)pathMs) + " ms" : "no path queries";
+        if (collections > 0)
+        {
+            details += ", garbage collection ran";
+        }
+        if (_slowTicksUnreported > 0)
+        {
+            details += ", " + _slowTicksUnreported + " more slow updates since the last report";
+            _slowTicksUnreported = 0;
+        }
+        DvergrWorkersPlugin.Log.LogWarning("Slow update: " + Role.Name + " worker took " + Format((float)ms) + " ms ("
+            + (InRound ? "in a round" : "between rounds") + ", status " + status + "; " + details + ")");
     }
 
     private bool TickCore(MonsterAI ai, float dt)

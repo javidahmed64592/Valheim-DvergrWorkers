@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 
-using DvergrWorkers.Roles.Farmer;
-
 using UnityEngine;
 
-namespace DvergrWorkers.Roles.TreeFarmer;
+namespace DvergrWorkers.Roles.Farmer;
 
 /// <summary>
 /// Trees, saplings and plants near the job area, bucketed by where they stand, so checking whether a spot is too

@@ -30,6 +30,25 @@ public class TreeFarmerWorker : WorkerBrain
     private const int MaxReachChecks = 30;
 
     private int _reachChecksLeft;
+
+    /// <summary>
+    /// Path time (milliseconds) one planning pass may spend checking that spots can be walked to. Asking about
+    /// spots that turn out to be cut off is the slow part; past this the pass stops and planning looks again soon.
+    /// </summary>
+    private const double MaxReachMilliseconds = 8.0;
+
+    private double _reachPathsAtStart;
+
+    private void ResetReachChecks()
+    {
+        _reachChecksLeft = MaxReachChecks;
+        _reachPathsAtStart = WorkerPaths.Milliseconds;
+    }
+
+    private bool ReachCheckAllowed()
+    {
+        return _reachChecksLeft > 0 && WorkerPaths.Milliseconds - _reachPathsAtStart < MaxReachMilliseconds;
+    }
     private const float TreeSpacingMargin = 1f;
     private const float DefaultTreeRoom = 2f;
     private const float GatherInterval = 0.3f;
@@ -233,7 +252,7 @@ public class TreeFarmerWorker : WorkerBrain
                 _pendingChecks++;
                 continue;
             }
-            if (_reachChecksLeft <= 0)
+            if (!ReachCheckAllowed())
             {
                 // Out of checks for this pass: there may well be good spots left, so look again soon.
                 _pendingChecks++;
@@ -262,10 +281,7 @@ public class TreeFarmerWorker : WorkerBrain
         return Mathf.Max(type.Plant.m_growRadius, 0.5f);
     }
 
-    /// <summary>
-    /// Finds the trees and saplings near the job area. The game-wide search behind it is slow with a lot of the
-    /// world loaded, and planning asks several times in a row, so it is done at most once per frame.
-    /// </summary>
+    /// <summary>Finds the trees and saplings near the job area, at most once per frame however often planning asks.</summary>
     private void ScanScene()
     {
         if (_sceneScanFrame == Time.frameCount)
@@ -276,17 +292,17 @@ public class TreeFarmerWorker : WorkerBrain
 
         float range = WorkerConfig.JobRadius.Value + 10f;
         _nearbyTrees.Clear();
-        foreach (TreeBase tree in FindObjectsByType<TreeBase>(FindObjectsSortMode.None))
+        foreach (TreeBase tree in Scene.Trees.All)
         {
-            if (tree != null && tree.gameObject.activeInHierarchy && Utils.DistanceXZ(tree.transform.position, Home) <= range)
+            if (SceneObjects<TreeBase>.IsLive(tree) && Utils.DistanceXZ(tree.transform.position, Home) <= range)
             {
                 _nearbyTrees.Add(tree);
             }
         }
         _nearbyPlants.Clear();
-        foreach (Plant plant in FindObjectsByType<Plant>(FindObjectsSortMode.None))
+        foreach (Plant plant in Scene.Plants.All)
         {
-            if (plant != null && Utils.DistanceXZ(plant.transform.position, Home) <= range)
+            if (SceneObjects<Plant>.IsLive(plant) && Utils.DistanceXZ(plant.transform.position, Home) <= range)
             {
                 _nearbyPlants.Add(plant);
             }
@@ -434,7 +450,7 @@ public class TreeFarmerWorker : WorkerBrain
         }
 
         // The map of plantable ground is built in the background; the first time round, wait for it.
-        _survey.RefreshIfStale(Home, WorkerConfig.JobRadius.Value, WorkerConfig.JobRadius.Value + TaskRadiusTolerance,
+        _survey.Refresh(Home, WorkerConfig.JobRadius.Value, WorkerConfig.JobRadius.Value + TaskRadiusTolerance,
             WorkerConfig.TreeBuildingClearance.Value);
         if (!_survey.Ready)
         {
@@ -464,7 +480,7 @@ public class TreeFarmerWorker : WorkerBrain
     /// <summary>True if there is room for more trees, seeds to plant, and somewhere to plant them.</summary>
     private bool AnythingToPlant()
     {
-        _reachChecksLeft = MaxReachChecks;
+        ResetReachChecks();
         Dictionary<string, int> counts = CountFamilies(out int total);
         if (total >= WorkerConfig.MaxTrees.Value)
         {
@@ -549,6 +565,11 @@ public class TreeFarmerWorker : WorkerBrain
             IdleNote = NothingToDoNote();
         }
         EndRound(finished: true);
+        if (_pendingChecks > 0)
+        {
+            // Some spots could not be checked yet (navmesh still building, or the pass ran out of time).
+            StartNextRoundWithin(15f);
+        }
         return false;
     }
 
@@ -613,7 +634,7 @@ public class TreeFarmerWorker : WorkerBrain
 
     private bool StartBatch()
     {
-        _reachChecksLeft = MaxReachChecks;
+        ResetReachChecks();
         Dictionary<string, int> counts = CountFamilies(out int total);
         int room = WorkerConfig.MaxTrees.Value - total;
         if (room <= 0)

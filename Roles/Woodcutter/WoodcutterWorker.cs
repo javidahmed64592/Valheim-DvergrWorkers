@@ -272,7 +272,7 @@ public class WoodcutterWorker : WorkerBrain
         kind = TargetKind.Tree;
         float best = float.MaxValue;
 
-        foreach (TreeLog log in FindObjectsByType<TreeLog>(FindObjectsSortMode.None))
+        foreach (TreeLog log in Scene.Logs.All)
         {
             Consider(log.gameObject, TargetKind.Log, log.m_minToolTier <= toolTier, from, -CleanupBonus, ref best, ref target, ref kind);
         }
@@ -285,34 +285,19 @@ public class WoodcutterWorker : WorkerBrain
         }
         if (_stumpsCleared < WorkerConfig.StumpsPerRound.Value)
         {
-            foreach (Destructible stump in FindObjectsByType<Destructible>(FindObjectsSortMode.None))
+            foreach (Destructible stump in Scene.Stumps.All)
             {
-                if (IsStump(stump))
-                {
-                    Consider(stump.gameObject, TargetKind.Stump, stump.m_minToolTier <= toolTier, from, StumpPenalty, ref best, ref target, ref kind);
-                }
+                Consider(stump.gameObject, TargetKind.Stump, stump.m_minToolTier <= toolTier, from, StumpPenalty, ref best, ref target, ref kind);
             }
         }
         if (_treesChopped < WorkerConfig.TreesPerRound.Value)
         {
-            foreach (TreeBase tree in FindObjectsByType<TreeBase>(FindObjectsSortMode.None))
+            foreach (TreeBase tree in Scene.Trees.All)
             {
                 Consider(tree.gameObject, TargetKind.Tree, tree.m_minToolTier <= toolTier, from, 0f, ref best, ref target, ref kind);
             }
         }
         return target != null;
-    }
-
-    /// <summary>Tree stumps are Destructibles of type Tree named like "Beech_Stub"; player pieces are never touched.</summary>
-    private static bool IsStump(Destructible destructible)
-    {
-        if (destructible == null || destructible.m_destructibleType != DestructibleType.Tree
-            || destructible.GetComponent<Piece>() != null)
-        {
-            return false;
-        }
-        string name = destructible.gameObject.name.ToLowerInvariant();
-        return name.Contains("stub") || name.Contains("stump");
     }
 
     /// <summary>

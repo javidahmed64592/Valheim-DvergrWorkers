@@ -295,7 +295,7 @@ internal sealed class WorkerWander(Transform transform, MonsterAI ai, WorkerNavi
     /// <summary>True if the navmesh has a full path to the spot that is not a long way round.</summary>
     private bool IsWalkable(Vector3 from, Vector3 spot, float straight)
     {
-        if (!Pathfinding.instance.GetPath(from, spot, _pathScratch, _ai.m_pathAgentType, requireFullPath: true) || _pathScratch.Count == 0)
+        if (!WorkerPaths.GetPath(from, spot, _pathScratch, _ai.m_pathAgentType, requireFullPath: true) || _pathScratch.Count == 0)
         {
             return false;
         }

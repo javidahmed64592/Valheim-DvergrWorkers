@@ -232,10 +232,10 @@ public class RefuelerWorker : WorkerBrain
         _fuelNames.Clear();
 
         List<Component> candidates = [];
-        candidates.AddRange(FindObjectsByType<Fireplace>(FindObjectsSortMode.None));
-        candidates.AddRange(FindObjectsByType<CookingStation>(FindObjectsSortMode.None));
-        candidates.AddRange(FindObjectsByType<Smelter>(FindObjectsSortMode.None));
-        candidates.AddRange(FindObjectsByType<ShieldGenerator>(FindObjectsSortMode.None));
+        AddLive(candidates, Scene.Fireplaces.All);
+        AddLive(candidates, Scene.CookingStations.All);
+        AddLive(candidates, Scene.Smelters.All);
+        AddLive(candidates, ShieldGenerator.m_instances);
 
         foreach (Component fire in candidates)
         {
@@ -265,6 +265,19 @@ public class RefuelerWorker : WorkerBrain
             }
         }
         return found;
+    }
+
+    /// <summary>The loaded ones of a kind of fire that are in the scene; only those inside the job area matter, which is checked after.</summary>
+    /// <typeparam name="T">The kind of fire, e.g. <see cref="Fireplace"/>.</typeparam>
+    private static void AddLive<T>(List<Component> into, List<T> fires) where T : Component
+    {
+        foreach (T fire in fires)
+        {
+            if (SceneObjects<T>.IsLive(fire))
+            {
+                into.Add(fire);
+            }
+        }
     }
 
     private int Supply(string sharedName)

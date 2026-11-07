@@ -351,11 +351,6 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     }
 
     /// <summary>
-    /// Samples ground positions in rings around the target, keeps those that are within reach and
-    /// reachable by a full navmesh path, and returns the one with the shortest walk. If none qualifies,
-    /// falls back to whichever partial-path end gets closest to the target.
-    /// </summary>
-    /// <summary>
     /// Whether there is a standing spot within reach of the target that the worker can walk to along a full
     /// path from where it is now. Used to drop planting spots that sit behind a wall before walking to them.
     /// </summary>
@@ -380,11 +375,22 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     /// Path queries are synchronous and, for a spot that cannot be reached, search the whole connected navmesh.
     /// These caps keep one search for a standing spot cheap however many ring points there are.
     /// </summary>
-    private const int MaxFullPathQueries = 10;
-    private const int MaxPartialPathQueries = 4;
+    private const int MaxPathQueries = 10;
+
+    /// <summary>
+    /// Candidates are tried nearest the worker first, so when this many in a row cannot be walked to, the target is
+    /// almost certainly cut off (behind a wall, up on a roof) and asking about the rest would only cost time.
+    /// </summary>
+    private const int MaxMissesInARow = 3;
 
     private readonly List<Vector3> _candidates = [];
 
+    /// <summary>
+    /// Samples ground positions in rings around the target and asks for a path to each, nearest the worker first.
+    /// The best is the shortest walk to a spot within reach; if no path gets within reach, whichever path ends
+    /// closest to the target. One query per candidate answers both, so a target nobody can reach costs a few
+    /// queries instead of a dozen.
+    /// </summary>
     private bool FindStandPoint(out Vector3 best, bool strict)
     {
         best = Vector3.zero;
@@ -419,25 +425,42 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
 
         float bestLength = float.MaxValue;
         bool found = false;
+        float bestGap = float.MaxValue;
+        Vector3 nearest = Vector3.zero;
+        float nearestLength = 0f;
         int queries = 0;
+        int misses = 0;
         foreach (Vector3 candidate in _candidates)
         {
-            if (queries++ >= MaxFullPathQueries)
+            if (queries++ >= MaxPathQueries || misses >= MaxMissesInARow)
             {
                 break;
             }
-            if (!Pathfinding.instance.GetPath(here, candidate, _pathScratch, _ai.m_pathAgentType, requireFullPath: true)
+
+            // A partial path is asked for so that, if it falls short, it still says how close one can get.
+            if (!WorkerPaths.GetPath(here, candidate, _pathScratch, _ai.m_pathAgentType, requireFullPath: false)
                 || _pathScratch.Count == 0)
             {
+                misses++;
                 continue;
             }
 
-            // The navmesh may have snapped the goal elsewhere; judge from where we will really stand.
+            // The path may stop short, or the navmesh may have snapped the goal elsewhere: judge from where we will really stand.
             Vector3 end = _pathScratch[_pathScratch.Count - 1];
             if (!InReach(end) || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
             {
+                float gap = Gap(end);
+                if (gap < bestGap)
+                {
+                    bestGap = gap;
+                    nearest = end;
+                    nearestLength = PathLength(_pathScratch);
+                }
+                misses++;
                 continue;
             }
+            misses = 0;
+
             if (strict)
             {
                 // Only asked whether there is a way at all.
@@ -465,31 +488,14 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             return found;
         }
 
-        // No full path: settle for whichever partial path ends closest to the target.
-        float bestGap = float.MaxValue;
-        queries = 0;
-        foreach (Vector3 candidate in _candidates)
+        // No path gets within reach: settle for whichever ends closest to the target.
+        if (bestGap < float.MaxValue)
         {
-            if (queries++ >= MaxPartialPathQueries)
-            {
-                break;
-            }
-            if (!Pathfinding.instance.GetPath(here, candidate, _pathScratch, _ai.m_pathAgentType, requireFullPath: false)
-                || _pathScratch.Count == 0)
-            {
-                continue;
-            }
-            Vector3 end = _pathScratch[_pathScratch.Count - 1];
-            float gap = Gap(end);
-            if (gap < bestGap)
-            {
-                bestGap = gap;
-                _pathLength = PathLength(_pathScratch);
-                best = end;
-                found = true;
-            }
+            best = nearest;
+            _pathLength = nearestLength;
+            return true;
         }
-        return found;
+        return false;
     }
 
     private static float PathLength(List<Vector3> path)
