@@ -54,6 +54,11 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private readonly WorkerRole _role = role;
     private readonly int _groundMask = LayerMask.GetMask("Default", "static_solid", "terrain", "piece", "Default_small");
     private readonly int _obstacleMask = LayerMask.GetMask("Default", "static_solid", "piece", "Default_small");
+
+    /// <summary>Walls and other solid things that block reaching through them (not bushes or saplings).</summary>
+    private readonly int _sightMask = LayerMask.GetMask("Default", "static_solid", "piece");
+
+    private const float SightMargin = 0.3f;
     private readonly List<Vector3> _pathScratch = [];
 
     private Func<Vector3, Vector3> _closestPoint;
@@ -102,11 +107,6 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     /// </summary>
     public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint, bool rememberFailure = false)
     {
-        _closestPoint = closestPoint;
-        _targetName = targetName;
-        _rememberFailure = rememberFailure;
-        _reach = _role.Reach.Value;
-
         // A target this worker already gave up on is not worth walking to again for a while. Finding no standing
         // spot is remembered too: that search is the expensive part, and repeating it every round for a piece
         // nobody can reach (a high roof, a fire behind a wall) is what stalls the game.
@@ -115,8 +115,16 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         {
             return false;
         }
-        if (!FindStandPoint(out _standPoint, strict: false))
+
+        // The search reads the new target, but a failed one must leave a walk already under way as it was.
+        Func<Vector3, Vector3> previousPoint = _closestPoint;
+        float previousReach = _reach;
+        _closestPoint = closestPoint;
+        _reach = _role.Reach.Value;
+        if (!FindStandPoint(out Vector3 standPoint, strict: false))
         {
+            _closestPoint = previousPoint;
+            _reach = previousReach;
             if (rememberFailure)
             {
                 UnreachableSpots.Suspect(spot);
@@ -124,6 +132,9 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             return false;
         }
 
+        _standPoint = standPoint;
+        _targetName = targetName;
+        _rememberFailure = rememberFailure;
         ResetWalk();
         _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (_pathLength * SecondsPerMetre));
         return true;
@@ -351,6 +362,22 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     }
 
     /// <summary>
+    /// Whether nothing solid stands between a worker at <paramref name="feet"/> and the target. Reach is measured in
+    /// a straight line, so without this a fire on the far side of a wall counts as in reach from the near side, and
+    /// the worker heads for the wall instead of walking round through the door.
+    /// </summary>
+    private bool CanSee(Vector3 feet)
+    {
+        Vector3 chest = Chest(feet);
+        Vector3 toTarget = _closestPoint(chest) - chest;
+        float distance = toTarget.magnitude;
+
+        // Stop just short of the target's surface so the target itself does not count as being in the way.
+        return distance <= SightMargin + 0.1f
+            || !Physics.Raycast(chest, toTarget / distance, distance - SightMargin, _sightMask, QueryTriggerInteraction.Ignore);
+    }
+
+    /// <summary>
     /// Whether there is a standing spot within reach of the target that the worker can walk to along a full
     /// path from where it is now. Used to drop planting spots that sit behind a wall before walking to them.
     /// </summary>
@@ -453,7 +480,8 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
 
             // The path may stop short, or the navmesh may have snapped the goal elsewhere: judge from where we will really stand.
             Vector3 end = _pathScratch[_pathScratch.Count - 1];
-            if (!InReach(end) || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
+            if (!InReach(end) || !CanSee(end)
+                || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
             {
                 float gap = Gap(end);
                 if (gap < bestGap)
