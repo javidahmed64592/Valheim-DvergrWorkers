@@ -18,7 +18,7 @@ jobs:
       - run: dotnet format --verify-no-changes --no-restore
       - run: dotnet build --no-restore --configuration Release
 
-  version-check:
+  dotnet-version-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
