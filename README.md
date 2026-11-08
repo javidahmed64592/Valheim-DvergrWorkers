@@ -69,7 +69,13 @@ Each job loop:
 Each role has a buildable bed that spawns the corresponding worker.
 The worker will perform its tasks automatically within its designated area (a configurable radius around its bed).
 Workers will respawn if they die as long as their bed remains intact, and destroying the bed will despawn the worker.
-The bed's hover text indicates the worker's status (e.g., idle, working, resting, or waiting for resources).
+The bed's hover text indicates the worker's status (e.g., idle, working, resting, or waiting for resources) and which way the worker is from the bed (e.g., "23 m north-east, 4 m above").
+
+**Taking a break:** press **Shift+E** on a worker's bed, or on the worker itself, to send it on a break.
+It finishes the round it is on, then starts no new ones (handy when the chests are filling with things you do not need right now) while still strolling about, sleeping at night and defending the base.
+Press **Shift+E** again to send it back to work.
+
+**Finding a worker:** press **E** on a worker's bed to be shown the way to it.
 
 ### Chests
 
@@ -113,7 +119,7 @@ For example, the farmer can keep replanting barley while the barley worker mills
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
-You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, whether workers take each other's items from output chests, and how close to a machine dropped items must be for machine workers to use them.
+
 
 ## Known Limitations
 

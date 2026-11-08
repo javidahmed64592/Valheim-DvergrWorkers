@@ -22,7 +22,7 @@ namespace DvergrWorkers.Core;
 /// normal behaviour and defends itself.
 /// </para>
 /// </summary>
-public abstract class WorkerBrain : MonoBehaviour
+public abstract class WorkerBrain : MonoBehaviour, Interactable
 {
     private static readonly Dictionary<GameObject, WorkerBrain> Instances = [];
 
@@ -134,6 +134,14 @@ public abstract class WorkerBrain : MonoBehaviour
         return "Idle";
     }
 
+    /// <summary>
+    /// Called every frame on the worker's owner, working or not, for work a role spreads over many frames
+    /// (such as surveying its area) so that no single frame takes long.
+    /// </summary>
+    protected virtual void BackgroundWork(float dt)
+    {
+    }
+
     /// <summary>Called once a round ends, whether it finished or was interrupted.</summary>
     protected virtual void OnRoundEnded(bool finished)
     {
@@ -151,7 +159,7 @@ public abstract class WorkerBrain : MonoBehaviour
         Navigator = new WorkerNavigator(Ai, Character, Role);
         Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
         Animation = new WorkerAnimation(Character, Role);
-        Sleep = new WorkerSleep(Nview, Character, Ai);
+        Sleep = new WorkerSleep(Nview, Character, Ai, Navigator);
         Wander = new WorkerWander(transform, Ai, Navigator, DistanceToNearestOther);
         Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
         Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;
@@ -203,8 +211,66 @@ public abstract class WorkerBrain : MonoBehaviour
 
     // ------------------------------------------------------------ main loop
 
-    /// <summary>Returns true if this frame's AI update was handled and the vanilla AI should be skipped.</summary>
+    /// <summary>A worker's update taking longer than this (milliseconds) is reported in the log as a hitch.</summary>
+    private const double SlowTickMs = 30.0;
+
+    /// <summary>Hitches are reported at most this often (seconds) per worker, so a stuck slow path cannot flood the log.</summary>
+    private const float SlowTickReportInterval = 10f;
+
+    private static readonly System.Diagnostics.Stopwatch TickWatch = new();
+    private float _nextSlowReport;
+
+    /// <summary>
+    /// Returns true if this frame's AI update was handled and the vanilla AI should be skipped. Updates that take
+    /// long enough to be felt as a stutter are written to the log with what the worker was doing, so a hitch can be
+    /// traced to its cause.
+    /// </summary>
     public bool Tick(MonsterAI ai, float dt)
+    {
+        string before = _status;
+        int paths = WorkerPaths.Queries;
+        double pathMs = WorkerPaths.Milliseconds;
+        int collections = GC.CollectionCount(0);
+        TickWatch.Restart();
+
+        bool handled = TickCore(ai, dt);
+
+        double ms = TickWatch.Elapsed.TotalMilliseconds;
+        if (ms > SlowTickMs)
+        {
+            ReportSlowTick(ms, before, WorkerPaths.Queries - paths, WorkerPaths.Milliseconds - pathMs, GC.CollectionCount(0) - collections);
+        }
+        return handled;
+    }
+
+    /// <summary>Slow updates not written to the log since the last one that was, so a burst of them still shows.</summary>
+    private int _slowTicksUnreported;
+
+    private void ReportSlowTick(double ms, string before, int paths, double pathMs, int collections)
+    {
+        if (Time.time < _nextSlowReport)
+        {
+            _slowTicksUnreported++;
+            return;
+        }
+        _nextSlowReport = Time.time + SlowTickReportInterval;
+
+        string status = _status == before ? "\"" + before + "\"" : "\"" + before + "\" -> \"" + _status + "\"";
+        string details = paths > 0 ? paths + " path queries " + Format((float)pathMs) + " ms" : "no path queries";
+        if (collections > 0)
+        {
+            details += ", garbage collection ran";
+        }
+        if (_slowTicksUnreported > 0)
+        {
+            details += ", " + _slowTicksUnreported + " more slow updates since the last report";
+            _slowTicksUnreported = 0;
+        }
+        DvergrWorkersPlugin.Log.LogWarning("Slow update: " + Role.Name + " worker took " + Format((float)ms) + " ms ("
+            + (InRound ? "in a round" : "between rounds") + ", status " + status + "; " + details + ")");
+    }
+
+    private bool TickCore(MonsterAI ai, float dt)
     {
         if (Nview == null || !Nview.IsValid() || !Nview.IsOwner())
         {
@@ -240,6 +306,8 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
 
+        BackgroundWork(dt);
+
         if (LeaveWater(dt))
         {
             return true;
@@ -274,7 +342,15 @@ public abstract class WorkerBrain : MonoBehaviour
             return RunTask(dt);
         }
 
-        SetStatus(restTime ? "Resting" : IdleNote ?? IdleStatus());
+        bool onBreak = IsOnBreak();
+        if (restTime)
+        {
+            SetStatus("Resting");
+        }
+        else
+        {
+            SetStatus(onBreak ? "On a break" : IdleNote ?? IdleStatus());
+        }
 
         // At night go to bed and lie there until morning; anything dangerous (or daylight) gets us up again.
         bool asleep = Sleep.IsAsleep;
@@ -298,7 +374,7 @@ public abstract class WorkerBrain : MonoBehaviour
             return false;
         }
 
-        if (!restTime && Time.time >= _nextRound)
+        if (!restTime && !onBreak && Time.time >= _nextRound)
         {
             if (!ChestsReady())
             {
@@ -320,6 +396,56 @@ public abstract class WorkerBrain : MonoBehaviour
         }
 
         return Idle(dt);
+    }
+
+    /// <summary>
+    /// A player has sent this worker on a break (Shift+E on its bed or on the worker): it finishes the round it
+    /// is on, then stays idle until sent back to work. The flag lives on the bed, which is always loaded while
+    /// the worker is near it.
+    /// </summary>
+    private bool IsOnBreak()
+    {
+        WorkerBed bed = WorkerBed.FindLoaded(BedId);
+        return bed != null && bed.IsPaused;
+    }
+
+    // ------------------------------------------------------------ interaction
+
+    /// <summary>Shift+E on the worker does the same as on its bed: sends it on a break or back to work.</summary>
+    public bool Interact(Humanoid user, bool hold, bool alt)
+    {
+        if (hold || !alt)
+        {
+            return false;
+        }
+
+        WorkerBed bed = WorkerBed.FindLoaded(BedId);
+        if (bed == null)
+        {
+            user.Message(MessageHud.MessageType.Center, "This Dvergr's bed is too far away");
+            return false;
+        }
+        bed.TogglePaused(user);
+        return false;
+    }
+
+    public bool UseItem(Humanoid user, ItemDrop.ItemData item)
+    {
+        return false;
+    }
+
+    /// <summary>What the crosshair shows when looking at the worker (the game shows its name above its head).</summary>
+    internal string GetHoverText()
+    {
+        WorkerBed bed = WorkerBed.FindLoaded(BedId);
+        bool paused = bed != null && bed.IsPaused;
+        string text = "<color=#cccccc>" + GetStatus() + "</color>";
+        if (paused && IsWorking)
+        {
+            text += "\n<color=" + WorkerBed.BreakColour + ">Taking a break after this round</color>";
+        }
+        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (paused ? "Back to work" : "Take a break");
+        return Localization.instance.Localize(text);
     }
 
     private static string Format(float value)

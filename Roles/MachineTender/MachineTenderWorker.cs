@@ -200,9 +200,9 @@ public abstract class MachineTenderWorker : WorkerBrain
         List<Smelter> found = [];
         _productNames.Clear();
 
-        foreach (Smelter machine in FindObjectsByType<Smelter>(FindObjectsSortMode.None))
+        foreach (Smelter machine in Scene.Smelters.All)
         {
-            if (!IsValid(machine) || !InJobArea(machine.transform.position))
+            if (!SceneObjects<Smelter>.IsLive(machine) || !IsValid(machine) || !InJobArea(machine.transform.position))
             {
                 continue;
             }

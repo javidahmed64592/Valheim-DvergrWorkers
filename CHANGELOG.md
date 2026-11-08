@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.14.0
+
+You can now send workers on a break, and find them when you lose track of them.
+
+- Press **Shift+E** on a worker's bed, or on the worker itself, to send it on a break: it finishes the round it is on and then starts no new ones, e.g. so the woodcutter stops filling chests with wood you do not need yet. It still strolls about, sleeps at night and defends the base. Press **Shift+E** again to send it back to work. The bed and the worker say when it is on a break, or will be after its current round. The break is saved on the bed, so it lasts through the worker respawning and the world being reloaded. Anyone who could open a chest there (wards permitting) can do this.
+- The bed's hover text says which way the worker is from the bed, e.g. "Worker: 23 m north-east, 4 m above".
+- Press **E** on a worker's bed to be shown the way to it. A green arrow on the HUD sits over the worker, through walls, with its name and distance, and clings to the edge of the screen pointing the way when the worker is off screen. A trail of green arrows on the ground leads from you to the worker along the path you would walk, and the worker glows green. It stops once you reach the worker, when you press **E** on the bed again, or after three minutes. Only you see it.
+- Looking at a worker now shows its status at the crosshair, as its bed does.
+- New config options in `[Finder]`: `ArriveDistance` (default 3 metres), `Timeout` (default 180 seconds, 0 for none), `ShowTrail` and `Glow`.
+- Fixed the game freezing for about half a second every few seconds near a Tree Farmer Worker, worst with a large `JobRadius` or a short task interval. Looking for somewhere to plant meant a dozen physics and terrain checks on every point of a grid across the whole job area, for each species in turn, twice per round, all in a single frame. The tree farmer now surveys its area a couple of milliseconds per frame in the background and reuses that survey for a minute, finds nearby trees once per frame instead of several times, and checks a spot against only the trees close to it.
+- Fixed the Tree Farmer Worker starting a round every task interval only to end it at once, when a tree seed was lying somewhere it had already failed to reach.
+- Fixed shorter stutters from the other workers, again worst with a large `JobRadius`:
+  - Workers no longer search every object in the loaded world whenever they decide what to do next (every tree, rock and bush for the woodcutter, every pickable for the farmer). The objects they care about are now noted as they load in, which also cuts the garbage that causes stutters of its own.
+  - The Farmer Worker looked for free tilled soil by checking every point of a one-metre grid across its whole job area, tens of thousands of points with a large radius, all in one frame. Like the tree farmer, it now surveys its area a little each frame in the background, redone every 20 seconds so newly tilled soil is still planted soon.
+  - Finding a place to stand next to something no one can reach (a log behind a wall, a seed on a roof) cost up to 14 path searches; workers now give up after a few that fall short, and each search does double duty as a fallback. Checking planting spots is also capped at a few milliseconds per planning pass, after which the farmers look again shortly.
+- Fixed workers trying to reach things through walls. Reach is measured in a straight line, so a fire, chest or damaged piece just the other side of a wall counted as in reach from the near side; the worker walked into the corner of its own room, could not quite get close enough, and wrote the thing off for five minutes instead of walking round through the door. A worker now only stands where it can see what it is working on.
+- Fixed workers that sleep in a tight spot (between beds, past an open door) failing every job from there. The game's paths leave out gaps narrower than a worker plus a margin and steps as high as a bed, so from such a spot no path led anywhere and the worker walked into the corner and gave up, even though it could simply step out. A worker that finds itself cut off like this now steps a couple of metres into the open first, then follows the path from there. The other way round works too: when a target sits in such a spot, the worker walks as far as the path goes and steps in from there.
+- Fixed workers trying to walk to bed through a wall: they headed for whichever edge of the bed was nearest in a straight line, which from the next room is through the wall. Going to bed now finds its way like any other walk, through the door and into a bed tucked into a corner.
+- Slow worker updates are written to the BepInEx log as warnings, with the worker's role, what it was doing, how much of the time went on pathfinding, whether a garbage collection happened, and how many other slow updates there were since the last warning.
+
 ## 0.13.0
 
 Workers no longer drop their task just because an enemy is around.

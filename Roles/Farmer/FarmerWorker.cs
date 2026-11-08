@@ -29,13 +29,31 @@ public class FarmerWorker : WorkerBrain
     private const int MaxReachChecks = 30;
 
     private int _reachChecksLeft;
+
+    /// <summary>
+    /// Path time (milliseconds) one planning pass may spend checking that spots can be walked to. Asking about
+    /// spots that turn out to be cut off is the slow part; past this the pass stops and planning looks again soon.
+    /// </summary>
+    private const double MaxReachMilliseconds = 8.0;
+
+    private double _reachPathsAtStart;
+
+    private void ResetReachChecks()
+    {
+        _reachChecksLeft = MaxReachChecks;
+        _reachPathsAtStart = WorkerPaths.Milliseconds;
+    }
+
+    private bool ReachCheckAllowed()
+    {
+        return _reachChecksLeft > 0 && WorkerPaths.Milliseconds - _reachPathsAtStart < MaxReachMilliseconds;
+    }
     private const float HarvestWait = 0.9f;
     private const float CollectInterval = 0.3f;
     private const int MaxCollectTries = 12;
     private const float DropRadius = 3f;
     private const int FullSlots = 2;
-    private const float FineStep = 0.5f;
-    private const float CoarseStep = 1f;
+    private static readonly int SpaceMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid");
 
     /// <summary>Loose seeds this close to the one walked to are picked up on the same stop.</summary>
     private const float GatherRadius = 2.5f;
@@ -59,6 +77,8 @@ public class FarmerWorker : WorkerBrain
     private readonly HashSet<string> _ours = [];
     private readonly Dictionary<string, int> _plantedByFamily = [];
     private readonly List<Occupied> _plantedSpots = [];
+    private readonly CultivatedSurvey _survey = new();
+    private readonly OccupiedGrid _occupied = new();
     private ItemDrop _looseTarget;
     private readonly HashSet<ItemDrop> _looseFailed = [];
 
@@ -197,9 +217,9 @@ public class FarmerWorker : WorkerBrain
     private List<Pickable> RipeCrops()
     {
         List<Pickable> found = [];
-        foreach (Pickable pickable in FindObjectsByType<Pickable>(FindObjectsSortMode.None))
+        foreach (Pickable pickable in Scene.Pickables.All)
         {
-            if (pickable == null || pickable.m_nview == null || !pickable.m_nview.IsValid() || pickable.m_picked
+            if (!SceneObjects<Pickable>.IsLive(pickable) || pickable.m_nview == null || !pickable.m_nview.IsValid() || pickable.m_picked
                 || _failedPickables.Contains(pickable) || !InJobArea(pickable.transform.position))
             {
                 continue;
@@ -221,9 +241,9 @@ public class FarmerWorker : WorkerBrain
             counts[type.Family] = 0;
         }
 
-        foreach (Plant plant in FindObjectsByType<Plant>(FindObjectsSortMode.None))
+        foreach (Plant plant in Scene.Plants.All)
         {
-            if (plant != null && InJobArea(plant.transform.position))
+            if (SceneObjects<Plant>.IsLive(plant) && InJobArea(plant.transform.position))
             {
                 PlantType type = PlantCatalogue.Of(plant.gameObject);
                 if (type != null && type.IsTree)
@@ -237,9 +257,9 @@ public class FarmerWorker : WorkerBrain
             }
         }
 
-        foreach (Pickable pickable in FindObjectsByType<Pickable>(FindObjectsSortMode.None))
+        foreach (Pickable pickable in Scene.Pickables.All)
         {
-            if (pickable == null || pickable.m_itemPrefab == null || !InJobArea(pickable.transform.position)
+            if (!SceneObjects<Pickable>.IsLive(pickable) || pickable.m_itemPrefab == null || !InJobArea(pickable.transform.position)
                 || !IsCultivatedSpot(pickable.transform.position, out _))
             {
                 continue;
@@ -267,82 +287,28 @@ public class FarmerWorker : WorkerBrain
 
     /// <summary>
     /// Free tilled spots, nearest first, where this crop can actually grow: right biome, tilled soil,
-    /// open sky and room around it.
+    /// open sky and room around it. The tilled soil under open sky comes from the <see cref="CultivatedSurvey"/>.
     /// </summary>
     private List<Vector3> FindSpots(PlantType type, int max)
     {
-        int spaceMask = LayerMask.GetMask("Default", "static_solid", "Default_small", "piece", "piece_nonsolid");
-        int roofMask = LayerMask.GetMask("Default", "static_solid", "piece");
-        float radius = WorkerConfig.JobRadius.Value;
+        float room = type.Plant.m_growRadius;
         List<Vector3> spots = [];
         int wrongBiome = 0;
 
         // Every plant needs a clear circle around itself to grow, so a new plant must be at least as far
         // from each neighbour as the larger of the two circles. Checking only the new plant's own circle
         // would let it squeeze in next to a plant that needs more room, and starve that one.
-        List<Occupied> occupied = [.. _plantedSpots];
-        foreach (Plant plant in FindObjectsByType<Plant>(FindObjectsSortMode.None))
+        OccupiedGrid occupied = OccupiedSpots();
+        foreach (CultivatedSurvey.Spot spot in _survey.Spots)
         {
-            if (plant != null && Utils.DistanceXZ(plant.transform.position, Home) <= radius + 5f)
+            if (!PlantCatalogue.BiomeAllows(type, spot.Biome))
             {
-                occupied.Add(new Occupied { Position = plant.transform.position, Radius = plant.m_growRadius });
+                wrongBiome++;
+                continue;
             }
-        }
-
-        // Fully grown crops (pickables) block growth around them too.
-        foreach (Pickable pickable in FindObjectsByType<Pickable>(FindObjectsSortMode.None))
-        {
-            if (pickable != null && Utils.DistanceXZ(pickable.transform.position, Home) <= radius + 5f
-                && IsCultivatedSpot(pickable.transform.position, out _))
+            if (!occupied.Crowds(spot.Position, room, PlantCatalogue.SpacingMargin))
             {
-                occupied.Add(new Occupied { Position = pickable.transform.position, Radius = type.Plant.m_growRadius });
-            }
-        }
-
-        for (float x = -radius; x <= radius; x += CoarseStep)
-        {
-            for (float z = -radius; z <= radius; z += CoarseStep)
-            {
-                Vector3 coarse = new(Home.x + x, Home.y, Home.z + z);
-                if (!InJobArea(coarse) || !IsCultivatedSpot(coarse, out _))
-                {
-                    continue;
-                }
-
-                foreach (Vector2 offset in new[] { Vector2.zero, new Vector2(FineStep, 0f), new Vector2(0f, FineStep), new Vector2(FineStep, FineStep) })
-                {
-                    Vector3 p = new(coarse.x + offset.x, 0f, coarse.z + offset.y);
-                    p.y = ZoneSystem.instance.GetGroundHeight(p);
-
-                    if (!IsCultivatedSpot(p, out _))
-                    {
-                        continue;
-                    }
-                    if (!PlantCatalogue.BiomeAllows(type, p))
-                    {
-                        wrongBiome++;
-                        continue;
-                    }
-                    if (Physics.CheckSphere(p + (Vector3.up * 0.15f), type.Plant.m_growRadius + 0.2f, spaceMask)
-                        || Physics.Raycast(p + (Vector3.up * 0.2f), Vector3.up, 100f, roofMask))
-                    {
-                        continue;
-                    }
-
-                    bool crowded = false;
-                    foreach (Occupied other in occupied)
-                    {
-                        if (Utils.DistanceXZ(other.Position, p) < Mathf.Max(type.Plant.m_growRadius, other.Radius) + PlantCatalogue.SpacingMargin)
-                        {
-                            crowded = true;
-                            break;
-                        }
-                    }
-                    if (!crowded)
-                    {
-                        spots.Add(p);
-                    }
-                }
+                spots.Add(spot.Position);
             }
         }
 
@@ -369,7 +335,9 @@ public class FarmerWorker : WorkerBrain
                     break;
                 }
             }
-            if (crowded || UnreachableSpots.IsKnown(spot))
+            // Something may stand there that the survey does not know about, such as a newly built fence.
+            if (crowded || UnreachableSpots.IsKnown(spot)
+                || Physics.CheckSphere(spot + (Vector3.up * 0.15f), room + 0.2f, SpaceMask))
             {
                 continue;
             }
@@ -381,7 +349,7 @@ public class FarmerWorker : WorkerBrain
                 _pendingChecks++;
                 continue;
             }
-            if (_reachChecksLeft <= 0)
+            if (!ReachCheckAllowed())
             {
                 // Out of checks for this pass: there may well be good spots left, so look again soon.
                 _pendingChecks++;
@@ -403,6 +371,42 @@ public class FarmerWorker : WorkerBrain
             }
         }
         return chosen;
+    }
+
+    /// <summary>
+    /// Plants and grown crops in and around the job area, which new crops must keep their distance from. A grown
+    /// crop is given no room of its own: it blocks as much room as the crop being planted needs.
+    /// </summary>
+    private OccupiedGrid OccupiedSpots()
+    {
+        float range = WorkerConfig.JobRadius.Value + 5f;
+        _occupied.Clear();
+        foreach (Occupied planted in _plantedSpots)
+        {
+            _occupied.Add(planted);
+        }
+        foreach (Plant plant in Scene.Plants.All)
+        {
+            if (SceneObjects<Plant>.IsLive(plant) && Utils.DistanceXZ(plant.transform.position, Home) <= range)
+            {
+                _occupied.Add(new Occupied { Position = plant.transform.position, Radius = plant.m_growRadius });
+            }
+        }
+        foreach (Pickable pickable in Scene.Pickables.All)
+        {
+            if (SceneObjects<Pickable>.IsLive(pickable) && Utils.DistanceXZ(pickable.transform.position, Home) <= range
+                && IsCultivatedSpot(pickable.transform.position, out _))
+            {
+                _occupied.Add(new Occupied { Position = pickable.transform.position, Radius = 0f });
+            }
+        }
+        return _occupied;
+    }
+
+    /// <summary>Keeps the survey of tilled soil going a little each frame; see <see cref="CultivatedSurvey"/>.</summary>
+    protected override void BackgroundWork(float dt)
+    {
+        _survey.Continue();
     }
 
     /// <summary>
@@ -470,11 +474,20 @@ public class FarmerWorker : WorkerBrain
             return false;
         }
 
+        // The map of tilled soil is built in the background; the first time round, wait for it.
+        _survey.RefreshIfStale(Home, WorkerConfig.JobRadius.Value, WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
+        if (!_survey.Ready)
+        {
+            IdleNote = "Looking over the fields";
+            RetrySoon(1f);
+            return false;
+        }
+
         bool tilled = false;
         bool work = RipeCrops().Count > 0 || CarryingOther() || CarryingSeeds() || LooseItems().Count > 0;
         if (!work)
         {
-            _reachChecksLeft = MaxReachChecks;
+            ResetReachChecks();
             Dictionary<string, int> counts = CountFamilies();
             foreach (string family in OrderedFamilies(counts))
             {
@@ -628,6 +641,11 @@ public class FarmerWorker : WorkerBrain
             IdleNote = NothingToDoNote();
         }
         EndRound(finished: true);
+        if (_pendingChecks > 0)
+        {
+            // Some spots could not be checked yet (navmesh still building, or the pass ran out of time).
+            StartNextRoundWithin(15f);
+        }
         return false;
     }
 
@@ -651,7 +669,7 @@ public class FarmerWorker : WorkerBrain
 
     private bool StartBatch()
     {
-        _reachChecksLeft = MaxReachChecks;
+        ResetReachChecks();
 
         // Seeds picked up off the soil go in the ground first, from what is carried (no chest trip).
         foreach (PlantType type in new List<PlantType>(_loosePlanted))

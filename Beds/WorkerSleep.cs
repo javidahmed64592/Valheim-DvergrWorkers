@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 using DvergrWorkers.Logistics;
+using DvergrWorkers.Movement;
 
 using UnityEngine;
 
@@ -25,6 +26,8 @@ internal sealed class WorkerSleep
     private readonly ZNetView _nview;
     private readonly Character _character;
     private readonly MonsterAI _ai;
+    private readonly WorkerNavigator _navigator;
+    private bool _walking;
     private readonly Rigidbody _body;
     private readonly Collider _collider;
     private readonly Transform _model;
@@ -42,11 +45,12 @@ internal sealed class WorkerSleep
     private Vector3 _holdPosition;
     private Quaternion _holdRotation;
 
-    public WorkerSleep(ZNetView nview, Character character, MonsterAI ai)
+    public WorkerSleep(ZNetView nview, Character character, MonsterAI ai, WorkerNavigator navigator)
     {
         _nview = nview;
         _character = character;
         _ai = ai;
+        _navigator = navigator;
         _humanoid = character as Humanoid;
         _body = character.GetComponent<Rigidbody>();
         _collider = character.GetComponent<Collider>();
@@ -95,27 +99,36 @@ internal sealed class WorkerSleep
         _walkTime += dt;
         if (_walkTime > WalkTimePerAttempt)
         {
-            _walkTime = 0f;
-            if (++_failedAttempts > MaxRetries)
-            {
-                _gaveUp = true;
-                DvergrWorkersPlugin.Log.LogWarning("Dvergr could not reach its bed; resting where it is tonight");
-            }
-            else
-            {
-                _retryAt = Time.time + RetryDelay;
-            }
-            _ai.StopMoving();
-            return false;
+            return FailedAttempt();
         }
 
-        float distance = bed.NearestEdge(_character.transform.position, out Vector3 edge);
+        // The navigator rather than a plain walk to the nearest edge: that edge is often through a wall (the bed's
+        // room seen from next door), and beds are often tucked into corners the game's paths do not reach.
+        float distance = bed.NearestEdge(_character.transform.position, out _);
         if (distance > ArriveDistance)
         {
-            _ = _ai.MoveTo(dt, edge, 0.3f, false);
-            return true;
+            if (!_walking)
+            {
+                if (!_navigator.Begin("its bed", from => BedPoint(bed, from), reach: ArriveDistance))
+                {
+                    return FailedAttempt();
+                }
+                _walking = true;
+            }
+
+            NavResult result = _navigator.Step(dt);
+            if (result == NavResult.Moving)
+            {
+                return true;
+            }
+            _walking = false;
+            if (result == NavResult.Failed)
+            {
+                return FailedAttempt();
+            }
         }
 
+        _walking = false;
         _ai.StopMoving();
         _nview.GetZDO().Set(AsleepKey, true);
         PutWeaponsAway();
@@ -131,10 +144,36 @@ internal sealed class WorkerSleep
         return true;
     }
 
+    /// <summary>The point of the bed's edge nearest <paramref name="from"/>, at the same height, for the navigator to aim at.</summary>
+    private static Vector3 BedPoint(WorkerBed bed, Vector3 from)
+    {
+        _ = bed.NearestEdge(from, out Vector3 edge);
+        return edge;
+    }
+
+    /// <summary>Gives up on this attempt to reach the bed and tries again in a while, or not at all tonight.</summary>
+    private bool FailedAttempt()
+    {
+        _walkTime = 0f;
+        _walking = false;
+        if (++_failedAttempts > MaxRetries)
+        {
+            _gaveUp = true;
+            DvergrWorkersPlugin.Log.LogWarning("Dvergr could not reach its bed; resting where it is tonight");
+        }
+        else
+        {
+            _retryAt = Time.time + RetryDelay;
+        }
+        _ai.StopMoving();
+        return false;
+    }
+
     /// <summary>Stands the worker up beside the bed (if it was lying) and resets the night's state.</summary>
     public void WakeUp(Vector3 bedPosition)
     {
         _walkTime = 0f;
+        _walking = false;
         _gaveUp = false;
         _failedAttempts = 0;
         _retryAt = 0f;

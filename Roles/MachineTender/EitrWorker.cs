@@ -100,9 +100,9 @@ public class EitrWorker : MachineTenderWorker
     {
         SapCollector best = null;
         float bestDist = float.MaxValue;
-        foreach (SapCollector extractor in FindObjectsByType<SapCollector>(FindObjectsSortMode.None))
+        foreach (SapCollector extractor in Scene.SapCollectors.All)
         {
-            ZNetView view = ViewOf(extractor);
+            ZNetView view = SceneObjects<SapCollector>.IsLive(extractor) ? ViewOf(extractor) : null;
             if (view == null || !view.IsValid() || !InJobArea(extractor.transform.position)
                 || _tapped.Contains(extractor) || _unreachableTaps.Contains(extractor) || !HasSap(extractor)
                 || (extractor.m_spawnItem != null && !Logistics.Carried.CanAddItem(extractor.m_spawnItem.m_itemData, 1)))

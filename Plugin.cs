@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Configuration;
 
 using DvergrWorkers.Core;
+using DvergrWorkers.Finder;
 using DvergrWorkers.Prefabs;
 
 using HarmonyLib;
@@ -20,7 +21,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.dvergrworkers";
     public const string PluginName = "Dvergr Workers";
-    public const string PluginVersion = "0.13.0";
+    public const string PluginVersion = "0.14.0";
 
     internal static BepInEx.Logging.ManualLogSource Log { get; private set; }
 
@@ -38,8 +39,15 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
         PrefabManager.OnVanillaPrefabsAvailable += RegisterPrefabs;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "Unity message")]
+    private void LateUpdate()
+    {
+        WorkerFinder.LateUpdate(UnityEngine.Time.deltaTime);
+    }
+
     private void OnDestroy()
     {
+        WorkerFinder.Stop();
         _harmony?.UnpatchSelf();
     }
 
@@ -85,6 +93,10 @@ internal static class WorkerConfig
     public static ConfigEntry<float> PersonalSpace;
     public static ConfigEntry<int> InventoryWidth;
     public static ConfigEntry<int> InventoryHeight;
+    public static ConfigEntry<float> FinderArriveDistance;
+    public static ConfigEntry<float> FinderTimeout;
+    public static ConfigEntry<bool> FinderTrail;
+    public static ConfigEntry<bool> FinderGlow;
 
     public static void Bind(ConfigFile config)
     {
@@ -122,6 +134,17 @@ internal static class WorkerConfig
             new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
         InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
             new ConfigDescription("Rows in a worker's own inventory.", new AcceptableValueRange<int>(1, 8)));
+
+        FinderArriveDistance = config.Bind("Finder", "ArriveDistance", 3f,
+            new ConfigDescription("Pressing E on a worker's bed shows the way to its worker. It stops once you are this close (metres) to the worker.",
+                new AcceptableValueRange<float>(1f, 15f)));
+        FinderTimeout = config.Bind("Finder", "Timeout", 180f,
+            new ConfigDescription("Seconds after which the way to a worker stops being shown if you have not reached it. 0 keeps showing it until you get there or press E on the bed again.",
+                new AcceptableValueRange<float>(0f, 1800f)));
+        FinderTrail = config.Bind("Finder", "ShowTrail", true,
+            "While showing the way to a worker, lay a trail of green arrows on the ground from you to the worker, along the path you would walk.");
+        FinderGlow = config.Bind("Finder", "Glow", true,
+            "While showing the way to a worker, make the worker glow green.");
 
         foreach (WorkerRole role in WorkerRoles.All)
         {
