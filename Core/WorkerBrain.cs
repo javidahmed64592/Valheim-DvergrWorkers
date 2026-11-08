@@ -159,7 +159,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         Navigator = new WorkerNavigator(Ai, Character, Role);
         Logistics = new WorkerLogistics(Humanoid, Navigator, () => Home, () => WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
         Animation = new WorkerAnimation(Character, Role);
-        Sleep = new WorkerSleep(Nview, Character, Ai);
+        Sleep = new WorkerSleep(Nview, Character, Ai, Navigator);
         Wander = new WorkerWander(transform, Ai, Navigator, DistanceToNearestOther);
         Humanoid.GetInventory().m_width = WorkerConfig.InventoryWidth.Value;
         Humanoid.GetInventory().m_height = WorkerConfig.InventoryHeight.Value;

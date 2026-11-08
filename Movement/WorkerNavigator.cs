@@ -84,6 +84,12 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
 
     /// <summary>What the last stand point search found for <see cref="_via"/>, used by <see cref="Begin"/>.</summary>
     private bool _foundVia;
+
+    /// <summary>A last stretch to steer straight along, into a spot the navmesh has no path to.</summary>
+    private bool _hasApproach;
+    private Vector3 _approachPoint;
+    private bool _foundApproach;
+    private Vector3 _foundLanding;
     private Vector3 _foundViaPoint;
 
     /// <summary>Closest point on the solid colliders of an object (bounds for concave meshes, which can't be queried).</summary>
@@ -114,7 +120,8 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     /// Picks where to stand for the target. Returns false if no spot can be reached. On success the
     /// navigator is armed and <see cref="Step"/> should be called each frame.
     /// </summary>
-    public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint, bool rememberFailure = false)
+    /// <param name="reach">How close is close enough; the role's reach if not given.</param>
+    public bool Begin(string targetName, Func<Vector3, Vector3> closestPoint, bool rememberFailure = false, float reach = 0f)
     {
         // A target this worker already gave up on is not worth walking to again for a while. Finding no standing
         // spot is remembered too: that search is the expensive part, and repeating it every round for a piece
@@ -129,7 +136,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         Func<Vector3, Vector3> previousPoint = _closestPoint;
         float previousReach = _reach;
         _closestPoint = closestPoint;
-        _reach = _role.Reach.Value;
+        _reach = reach > 0f ? reach : _role.Reach.Value;
         if (!FindStandPoint(out Vector3 standPoint, strict: false))
         {
             _closestPoint = previousPoint;
@@ -153,6 +160,14 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
                 + " first to reach " + targetName);
         }
         _viaUntil = Time.time + ViaTimeout;
+        _hasApproach = _foundApproach;
+        if (_hasApproach)
+        {
+            _approachPoint = standPoint;
+            _standPoint = _foundLanding;
+            DvergrWorkersPlugin.Log.LogInfo("No path into the spot by " + targetName + ", walking to " + _foundLanding
+                + " and stepping in from there");
+        }
         _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (_pathLength * SecondsPerMetre));
         return true;
     }
@@ -182,6 +197,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _escapes = 0;
         _escapeUntil = 0f;
         _hasVia = false;
+        _hasApproach = false;
         _stuckSamplePos = _transform.position;
     }
 
@@ -204,6 +220,16 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
                 return NavResult.Moving;
             }
             _hasVia = false;
+            _stuckSamplePos = _transform.position;
+            _stuckTimer = 0f;
+        }
+
+        // At the landing point: the navmesh goes no further, so steer straight for the real standing spot.
+        if (_hasApproach && Utils.DistanceXZ(_transform.position, _standPoint) <= ArriveSlack)
+        {
+            _hasApproach = false;
+            _standPoint = _approachPoint;
+            _stuckStrikes = Mathf.Max(_stuckStrikes, 1);
             _stuckSamplePos = _transform.position;
             _stuckTimer = 0f;
         }
@@ -466,6 +492,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         best = Vector3.zero;
         _pathLength = 0f;
         _foundVia = false;
+        _foundApproach = false;
         Vector3 here = _transform.position;
         if (InReach(here) || (!strict && Gap(here) <= _reach * ToleranceFactor))
         {
@@ -574,6 +601,13 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         {
             return true;
         }
+
+        // Or the other way round: the target is in such a scrap (a bed in a corner) and paths stop just outside it.
+        // Only tried when a path did get close, so a target nobody can reach (a roof) costs no more queries.
+        if (bestGap <= _reach + IslandRadius && TryLandNear(here, out best))
+        {
+            return true;
+        }
         if (strict)
         {
             return false;
@@ -593,6 +627,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private const float IslandRadius = 3f;
 
     private const int MaxIslandQueries = 6;
+    private const int MaxLandingQueries = 4;
     private const float ViaArrive = 0.7f;
     private const float ViaTimeout = 4f;
 
@@ -610,39 +645,12 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         best = Vector3.zero;
 
         // Head for a spot the worker could stand on and see the target from, nearest the worker first.
-        Vector3 goal = Vector3.zero;
-        bool haveGoal = false;
-        foreach (Vector3 candidate in _candidates)
-        {
-            if (InReach(candidate) && CanSee(candidate))
-            {
-                goal = candidate;
-                haveGoal = true;
-                break;
-            }
-        }
-        if (!haveGoal)
+        if (!GoodCandidate(out Vector3 goal))
         {
             return false;
         }
 
-        Vector3 waist = Vector3.up * 0.8f;
-        _launches.Clear();
-        foreach (float radius in LaunchRadii)
-        {
-            for (int a = 0; a < StandAngles; a++)
-            {
-                float rad = a * Mathf.PI * 2f / StandAngles;
-                Vector3 launch = here + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
-                if (Physics.Raycast(launch + (Vector3.up * 1.5f), Vector3.down, out RaycastHit hit, 4f, _groundMask)
-                    && !IsUnderwater(hit.point)
-                    && !Physics.Linecast(here + waist, hit.point + waist, _obstacleMask, QueryTriggerInteraction.Ignore)
-                    && !Physics.CheckCapsule(hit.point + (Vector3.up * 0.5f), hit.point + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
-                {
-                    _launches.Add(hit.point);
-                }
-            }
-        }
+        StraightLineNeighbours(here);
 
         int queries = 0;
         foreach (Vector3 launch in _launches)
@@ -664,6 +672,88 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
                 _pathLength = Vector3.Distance(here, launch) + PathLength(_pathScratch);
                 _foundVia = true;
                 _foundViaPoint = launch;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// The first standing spot nearest the worker that is within reach of the target and can see it, or false.
+    /// </summary>
+    private bool GoodCandidate(out Vector3 goal)
+    {
+        foreach (Vector3 candidate in _candidates)
+        {
+            if (InReach(candidate) && CanSee(candidate))
+            {
+                goal = candidate;
+                return true;
+            }
+        }
+        goal = Vector3.zero;
+        return false;
+    }
+
+    /// <summary>
+    /// Adds the points around <paramref name="centre"/> that can be walked to from it in a straight line, with room
+    /// to stand and out of water, to <see cref="_launches"/>.
+    /// </summary>
+    private void StraightLineNeighbours(Vector3 centre)
+    {
+        Vector3 waist = Vector3.up * 0.8f;
+        _launches.Clear();
+        foreach (float radius in LaunchRadii)
+        {
+            for (int a = 0; a < StandAngles; a++)
+            {
+                float rad = a * Mathf.PI * 2f / StandAngles;
+                Vector3 point = centre + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
+                if (Physics.Raycast(point + (Vector3.up * 1.5f), Vector3.down, out RaycastHit hit, 4f, _groundMask)
+                    && !IsUnderwater(hit.point)
+                    && !Physics.Linecast(centre + waist, hit.point + waist, _obstacleMask, QueryTriggerInteraction.Ignore)
+                    && !Physics.CheckCapsule(hit.point + (Vector3.up * 0.5f), hit.point + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
+                {
+                    _launches.Add(hit.point);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Looks for a landing point a couple of metres from a standing spot by the target that a path does reach and
+    /// from which the spot is a straight walk. On success the landing is noted for <see cref="Begin"/>, which walks
+    /// there along the path and then steers straight in.
+    /// </summary>
+    private bool TryLandNear(Vector3 here, out Vector3 best)
+    {
+        best = Vector3.zero;
+        if (!GoodCandidate(out Vector3 goal))
+        {
+            return false;
+        }
+
+        StraightLineNeighbours(goal);
+        _launches.Sort((a, b) => (a - here).sqrMagnitude.CompareTo((b - here).sqrMagnitude));
+        int queries = 0;
+        foreach (Vector3 landing in _launches)
+        {
+            if (queries++ >= MaxLandingQueries)
+            {
+                break;
+            }
+            if (!WorkerPaths.GetPath(here, landing, _pathScratch, _ai.m_pathAgentType, requireFullPath: false)
+                || _pathScratch.Count == 0)
+            {
+                continue;
+            }
+            Vector3 end = _pathScratch[_pathScratch.Count - 1];
+            if (Utils.DistanceXZ(end, landing) <= 1f)
+            {
+                best = goal;
+                _pathLength = PathLength(_pathScratch) + Vector3.Distance(end, goal);
+                _foundApproach = true;
+                _foundLanding = end;
                 return true;
             }
         }
