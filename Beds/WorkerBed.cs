@@ -78,15 +78,13 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         bool paused = !IsPaused;
         _nview.InvokeRPC(SetPausedRpc, paused);
 
-        string message = "The " + Role.WorkerName + " is back to work";
+        string message = "$dw_msg_back_to_work";
         if (paused)
         {
             WorkerBrain worker = WorkerBrain.FindLoaded(BedId);
-            message = worker != null && worker.IsWorking
-                ? "The " + Role.WorkerName + " will take a break after this round"
-                : "The " + Role.WorkerName + " is taking a break";
+            message = worker != null && worker.IsWorking ? "$dw_msg_break_after_round" : "$dw_msg_taking_break";
         }
-        user.Message(MessageHud.MessageType.Center, message);
+        user.Message(MessageHud.MessageType.Center, Text.Show(Text.Of(message, Role.WorkerName)));
     }
 
     private void RPC_SetPaused(long sender, bool paused)
@@ -452,22 +450,23 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
 
     public string GetHoverText()
     {
-        string status = "No worker";
+        string status = "$dw_status_no_worker";
         string lines = "";
         WorkerBrain worker = null;
         if (_nview != null && _nview.IsValid())
         {
             worker = WorkerBrain.FindLoaded(BedId);
-            status = worker != null ? worker.GetStatus() : "Waiting for a worker";
+            status = worker != null ? worker.GetStatus() : "$dw_status_waiting_for_worker";
             lines = PauseLine(worker) + WhereLine(worker);
         }
 
-        string text = Role.Title + " Dvergr's bed\n<color=#cccccc>" + status + "</color>" + lines + ChestLines();
+        string text = Text.Show(Text.Of("$dw_bed_title", Role.WorkerName)) + "\n<color=#cccccc>" + Text.Show(status) + "</color>"
+            + lines + ChestLines();
         if (worker != null)
         {
-            text += "\n[<color=yellow><b>$KEY_Use</b></color>] " + (WorkerFinder.IsFinding(BedId) ? "Stop showing the way" : "Show the way to the worker");
+            text += "\n[<color=yellow><b>$KEY_Use</b></color>] " + (WorkerFinder.IsFinding(BedId) ? "$dw_stop_showing_way" : "$dw_show_way");
         }
-        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (IsPaused ? "Back to work" : "Take a break");
+        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (IsPaused ? "$dw_back_to_work" : "$dw_take_break");
         return Localization.instance.Localize(text);
     }
 
@@ -480,7 +479,7 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         {
             return "";
         }
-        string note = worker != null && worker.IsWorking ? "Taking a break after this round" : "On a break: no new rounds until told";
+        string note = worker != null && worker.IsWorking ? "$dw_break_after_round" : "$dw_on_break_until_told";
         return "\n<color=" + BreakColour + ">" + note + "</color>";
     }
 
@@ -496,18 +495,20 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
         float distance = Utils.DistanceXZ(worker.transform.position, transform.position);
         if (distance < 2f && Mathf.Abs(offset.y) < 2f)
         {
-            return "\n<color=#cccccc>Worker: right here</color>";
+            return "\n<color=#cccccc>" + Text.Show(Text.Of("$dw_worker_where", "$dw_right_here")) + "</color>";
         }
 
-        string where = distance < 2f ? "" : Mathf.RoundToInt(distance) + " m " + Compass(offset);
+        string where = distance < 2f ? "" : Text.Show(Text.Of("$dw_distance_direction", Mathf.RoundToInt(distance), Compass(offset)));
         if (Mathf.Abs(offset.y) >= 2f)
         {
-            where += (where.Length > 0 ? ", " : "") + Mathf.RoundToInt(Mathf.Abs(offset.y)) + " m " + (offset.y > 0f ? "above" : "below");
+            where += (where.Length > 0 ? ", " : "")
+                + Text.Show(Text.Of("$dw_distance_direction", Mathf.RoundToInt(Mathf.Abs(offset.y)), offset.y > 0f ? "$dw_above" : "$dw_below"));
         }
-        return "\n<color=#cccccc>Worker: " + where + "</color>";
+        return "\n<color=#cccccc>" + Text.Show(Text.Of("$dw_worker_where", where)) + "</color>";
     }
 
-    private static readonly string[] CompassPoints = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+    private static readonly string[] CompassPoints =
+        ["$dw_north", "$dw_north_east", "$dw_east", "$dw_south_east", "$dw_south", "$dw_south_west", "$dw_west", "$dw_north_west"];
 
     /// <summary>The compass direction of a horizontal offset; the world's +z is north, as on the map.</summary>
     internal static string Compass(Vector3 offset)
@@ -531,7 +532,8 @@ public class WorkerBed : MonoBehaviour, Hoverable, Interactable
             }
             int count = WorkerChest.Find(kind, transform.position, radius, transform.position).Count;
             string colour = count > 0 ? "#cccccc" : "#ff6a5c";
-            lines += "\n<color=" + colour + ">" + kind + " chests in range: " + count + (count > 0 ? "" : " (required)") + "</color>";
+            string token = kind == ChestKind.Input ? "$dw_input_chests_in_range" : "$dw_output_chests_in_range";
+            lines += "\n<color=" + colour + ">" + Text.Show(Text.Of(token, count)) + (count > 0 ? "" : " " + Text.Show("$dw_required")) + "</color>";
         }
         return lines;
     }

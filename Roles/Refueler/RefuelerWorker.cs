@@ -45,8 +45,8 @@ public class RefuelerWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _refueledLastRound > 0
-            ? "Idle (refuelled " + _refueledLastRound + " fires last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_refuelled", _refueledLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -340,7 +340,7 @@ public class RefuelerWorker : WorkerBrain
         if (!work)
         {
             _refueledLastRound = 0;
-            IdleNote = _starved ? "Waiting for " + _missingFuel + " in a chest" : null;
+            IdleNote = _starved ? Text.Of("$dw_status_waiting_for", _missingFuel) : null;
             return false;
         }
 
@@ -352,7 +352,7 @@ public class RefuelerWorker : WorkerBrain
 
     private string FuelName(Component fire)
     {
-        return FuelItem(fire).gameObject.name.ToLowerInvariant();
+        return FuelItem(fire).m_itemData.m_shared.m_name;
     }
 
     protected override bool RunTask(float dt)
@@ -406,7 +406,7 @@ public class RefuelerWorker : WorkerBrain
             }
             if (_refueledThisRound == 0 && _starved)
             {
-                IdleNote = "Waiting for " + _missingFuel + " in a chest";
+                IdleNote = Text.Of("$dw_status_waiting_for", _missingFuel);
             }
             EndRound(finished: true);
             return false;
@@ -435,10 +435,10 @@ public class RefuelerWorker : WorkerBrain
             if (Logistics.BeginFetchAny(i => i.m_shared.m_name == shared, missing))
             {
                 _phase = Phase.Fetch;
-                SetStatus("Fetching fuel from a chest");
+                SetStatus("$dw_status_fetching_fuel");
                 return true;
             }
-            DvergrWorkersPlugin.Log.LogInfo("Refueler fetch failed: " + Logistics.Reason);
+            DvergrWorkersPlugin.Log.LogInfo("Refueler fetch failed: " + Text.Show(Logistics.Reason));
         }
         return BeginWalk();
     }
@@ -450,7 +450,7 @@ public class RefuelerWorker : WorkerBrain
             case LogisticsResult.Moving:
                 return true;
             case LogisticsResult.Failed:
-                DvergrWorkersPlugin.Log.LogInfo("Refueler fetch failed: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Refueler fetch failed: " + Text.Show(Logistics.Reason));
                 break;
         }
 
@@ -486,7 +486,7 @@ public class RefuelerWorker : WorkerBrain
         }
 
         _phase = Phase.Walk;
-        SetStatus("Walking to a " + PrefabOf(fire).Replace('_', ' '));
+        SetStatus(Text.Of("$dw_status_walking_to_the", Text.NameOf(View(fire).gameObject)));
         return true;
     }
 
@@ -507,7 +507,7 @@ public class RefuelerWorker : WorkerBrain
                 _pickUpTries = 0;
                 _pickedUp = 0;
                 _timer = 0.2f;
-                SetStatus("Refuelling a " + PrefabOf(_fire).Replace('_', ' '));
+                SetStatus(Text.Of("$dw_status_refuelling", Text.NameOf(View(_fire).gameObject)));
                 break;
 
             case NavResult.Failed:
@@ -621,7 +621,7 @@ public class RefuelerWorker : WorkerBrain
         }
 
         _phase = Phase.Return;
-        SetStatus("Returning spare fuel to a chest");
+        SetStatus("$dw_status_returning_fuel");
         return true;
     }
 

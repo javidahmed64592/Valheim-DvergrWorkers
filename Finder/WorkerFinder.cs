@@ -57,12 +57,12 @@ internal static class WorkerFinder
         WorkerBrain worker = WorkerBrain.FindLoaded(bedId);
         if (worker == null)
         {
-            user.Message(MessageHud.MessageType.Center, "The " + bed.Role.WorkerName + " is not around");
+            user.Message(MessageHud.MessageType.Center, Text.Show(Text.Of("$dw_msg_not_around", bed.Role.WorkerName)));
             return;
         }
         if (Vector3.Distance(user.transform.position, worker.transform.position) <= WorkerConfig.FinderArriveDistance.Value)
         {
-            user.Message(MessageHud.MessageType.Center, "The " + bed.Role.WorkerName + " is right here");
+            user.Message(MessageHud.MessageType.Center, Text.Show(Text.Of("$dw_msg_right_here", bed.Role.WorkerName)));
             return;
         }
 
@@ -71,7 +71,7 @@ internal static class WorkerFinder
         _workerName = bed.Role.WorkerName;
         _startedAt = Time.time;
         _missingSince = -1f;
-        user.Message(MessageHud.MessageType.Center, "Follow the green arrows to the " + _workerName);
+        user.Message(MessageHud.MessageType.Center, Text.Show(Text.Of("$dw_msg_follow_arrows", _workerName)));
     }
 
     public static void Stop()
@@ -109,7 +109,7 @@ internal static class WorkerFinder
             }
             else if (Time.time - _missingSince > LostAfter)
             {
-                End(player, "Lost track of the " + _workerName);
+                End(player, Text.Of("$dw_msg_lost_track", _workerName));
             }
             return;
         }
@@ -118,14 +118,14 @@ internal static class WorkerFinder
         float distance = Vector3.Distance(player.transform.position, worker.transform.position);
         if (distance <= WorkerConfig.FinderArriveDistance.Value)
         {
-            End(player, "You found the " + _workerName);
+            End(player, Text.Of("$dw_msg_found", _workerName));
             return;
         }
 
         float timeout = WorkerConfig.FinderTimeout.Value;
         if (timeout > 0f && Time.time - _startedAt > timeout)
         {
-            End(player, "Stopped showing the way to the " + _workerName);
+            End(player, Text.Of("$dw_msg_stopped_showing", _workerName));
             return;
         }
 
@@ -153,7 +153,7 @@ internal static class WorkerFinder
     private static void End(Player player, string message)
     {
         Stop();
-        player.Message(MessageHud.MessageType.Center, message);
+        player.Message(MessageHud.MessageType.Center, Text.Show(message));
     }
 
     /// <summary>

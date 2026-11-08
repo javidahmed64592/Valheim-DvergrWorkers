@@ -125,8 +125,8 @@ public abstract class MachineTenderWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _handledLastRound > 0
-            ? "Idle (handled " + _handledLastRound + " items last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_handled", _handledLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -179,7 +179,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
     private static string DisplayName(Smelter machine)
     {
-        return PrefabOf(machine).Replace('_', ' ');
+        return Text.NameOf(machine.gameObject);
     }
 
     private static IEnumerable<string> OutputNames(Smelter machine)
@@ -304,7 +304,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 else
                 {
                     _starved = true;
-                    _missingFuel = shared.Replace("$item_", "");
+                    _missingFuel = shared;
                 }
             }
         }
@@ -340,7 +340,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 {
                     if (conversion.m_from != null)
                     {
-                        _ = _missingOre.Add(conversion.m_from.m_itemData.m_shared.m_name.Replace("$item_", ""));
+                        _ = _missingOre.Add(conversion.m_from.m_itemData.m_shared.m_name);
                     }
                 }
             }
@@ -363,15 +363,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
     private static string JoinNames(IEnumerable<string> names)
     {
-        List<string> readable = [];
-        foreach (string name in names)
-        {
-            readable.Add(name.EndsWith("seeds", StringComparison.Ordinal) && name.Length > 5 ? name.Substring(0, name.Length - 5) + " seeds" : name);
-        }
-
-        return readable.Count <= 1
-            ? string.Concat(readable)
-            : string.Join(", ", readable.GetRange(0, readable.Count - 1)) + " or " + readable[readable.Count - 1];
+        return Text.JoinOr([.. names]);
     }
 
     /// <summary>Says what the machines are short of, e.g. "Waiting for coal and ore in a chest".</summary>
@@ -385,9 +377,9 @@ public abstract class MachineTenderWorker : WorkerBrain
         if (_missingOre.Count > 0)
         {
             // Name the items when there are only a few ("barley, oat seeds or oat"); a smelter takes many, so say "items".
-            parts.Add(_missingOre.Count <= 3 ? JoinNames(_missingOre) : "items");
+            parts.Add(_missingOre.Count <= 3 ? JoinNames(_missingOre) : "$dw_items");
         }
-        return "Waiting for " + string.Join(" and ", parts) + " in a chest";
+        return Text.Of("$dw_status_waiting_for", Text.JoinAnd(parts));
     }
 
     /// <summary>Explains, at most every couple of minutes, why a round did not start.</summary>
@@ -489,7 +481,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
     private bool Abort(string reason)
     {
-        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " stopping: " + reason);
+        DvergrWorkersPlugin.Log.LogInfo(Role.Name + " stopping: " + Text.Show(reason));
         IdleNote = reason;
         EndRound(finished: false);
         return false;
@@ -622,7 +614,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 case LogisticsResult.Moving:
                     return true;
                 case LogisticsResult.Failed:
-                    DvergrWorkersPlugin.Log.LogInfo(Role.Name + " fetch failed: " + Logistics.Reason);
+                    DvergrWorkersPlugin.Log.LogInfo(Role.Name + " fetch failed: " + Text.Show(Logistics.Reason));
                     break;
             }
             _fetchActive = false;
@@ -643,7 +635,7 @@ public abstract class MachineTenderWorker : WorkerBrain
             if (missing > 0 && Logistics.BeginFetchAny(Match, missing))
             {
                 _fetchActive = true;
-                SetStatus("Fetching " + need.SharedName.TrimStart('$').Replace("item_", "") + " from a chest");
+                SetStatus(Text.Of("$dw_status_fetching_from_chest", need.SharedName));
                 return true;
             }
             _needIndex++;
@@ -678,7 +670,7 @@ public abstract class MachineTenderWorker : WorkerBrain
         }
 
         _phase = Phase.Walk;
-        SetStatus("Walking to the " + DisplayName(machine));
+        SetStatus(Text.Of("$dw_status_walking_to_the", DisplayName(machine)));
         return true;
     }
 
@@ -698,7 +690,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 _phase = Phase.Work;
                 _stage = Stage.Empty;
                 _timer = 0.2f;
-                SetStatus("Tending the " + DisplayName(_machine));
+                SetStatus(Text.Of("$dw_status_tending", DisplayName(_machine)));
                 break;
 
             case NavResult.Failed:
@@ -903,7 +895,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
         _depositSurplus = false;
         _phase = Phase.Deposit;
-        SetStatus("Delivering product to a chest");
+        SetStatus("$dw_status_delivering_product");
         return true;
     }
 
@@ -917,7 +909,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
         _depositSurplus = true;
         _phase = Phase.Deposit;
-        SetStatus("Storing spare supplies in a chest");
+        SetStatus("$dw_status_storing_spares");
         return true;
     }
 
@@ -948,7 +940,7 @@ public abstract class MachineTenderWorker : WorkerBrain
                 EndRound(finished: true);
                 return false;
             }
-            return Abort("Output chests are full");
+            return Abort("$dw_reason_output_full");
         }
 
         // Still carrying product: the chest filled up, so try the next closest one.

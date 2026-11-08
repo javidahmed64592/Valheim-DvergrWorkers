@@ -9,7 +9,7 @@ public class BlacksmithWorker : MachineTenderWorker
 
     protected override string AllowedMachines => "charcoal_kiln,smelter,blastfurnace";
 
-    protected override string NoMachinesNote => "No kiln, smelter or furnace nearby";
+    protected override string NoMachinesNote => "$dw_status_no_smelters";
 }
 
 /// <summary>Feeds barley to windmills and collects the flour.</summary>
@@ -19,7 +19,7 @@ public class BarleyWorker : MachineTenderWorker
 
     protected override string AllowedMachines => "windmill";
 
-    protected override string NoMachinesNote => "No windmill nearby";
+    protected override string NoMachinesNote => "$dw_status_no_windmill";
 }
 
 /// <summary>Feeds flax to spinning wheels and collects the linen thread.</summary>
@@ -29,5 +29,5 @@ public class FlaxWorker : MachineTenderWorker
 
     protected override string AllowedMachines => "piece_spinningwheel";
 
-    protected override string NoMachinesNote => "No spinning wheel nearby";
+    protected override string NoMachinesNote => "$dw_status_no_spinning_wheel";
 }

@@ -31,8 +31,8 @@ public class RepairWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _repairedLastRound > 0
-            ? "Idle (repaired " + _repairedLastRound + " pieces last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_repaired", _repairedLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -200,7 +200,7 @@ public class RepairWorker : WorkerBrain
             if (Navigator.Begin(candidate.name, from => WorkerNavigator.ClosestPointOnColliders(candidate.gameObject, from), rememberFailure: true))
             {
                 _current = candidate;
-                SetStatus("Walking to a damaged piece (" + (_queue.Count + 1) + " left)");
+                SetStatus(Text.Of("$dw_status_walking_to_damaged", _queue.Count + 1));
                 return true;
             }
 
@@ -236,7 +236,7 @@ public class RepairWorker : WorkerBrain
         if (_current.Repair())
         {
             _repairedThisRound++;
-            SetStatus("Repairing (" + _queue.Count + " more queued)");
+            SetStatus(Text.Of("$dw_status_repairing", _queue.Count));
 
             Piece piece = _current.GetComponent<Piece>();
             if (piece != null && piece.m_placeEffect != null)

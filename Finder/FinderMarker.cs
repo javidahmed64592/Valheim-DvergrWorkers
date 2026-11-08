@@ -84,7 +84,7 @@ internal sealed class FinderMarker
         }
 
         _root.transform.position = position;
-        _text.text = "<color=#6bff80>" + name + "</color>\n" + Mathf.RoundToInt(distance) + " m";
+        _text.text = "<color=#6bff80>" + Localization.instance.Localize(name) + "</color>\n" + Mathf.RoundToInt(distance) + " m";
 
         float pulse = Mathf.Lerp(0.75f, 1f, (Mathf.Sin(Time.time * 4f) + 1f) * 0.5f);
         _arrowImage.color = new Color(WorkerFinder.Green.r, WorkerFinder.Green.g, WorkerFinder.Green.b, pulse);

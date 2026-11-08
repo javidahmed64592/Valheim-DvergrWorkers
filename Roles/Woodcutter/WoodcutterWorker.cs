@@ -71,8 +71,8 @@ public class WoodcutterWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _deliveredLastRound > 0
-            ? "Idle (delivered " + _deliveredLastRound + " wood last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_delivered_wood", _deliveredLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -134,7 +134,7 @@ public class WoodcutterWorker : WorkerBrain
         if (!_deliverFirst && !ChooseTarget(out _, out _))
         {
             _deliveredLastRound = 0;
-            IdleNote = "No trees to chop nearby";
+            IdleNote = "$dw_status_no_trees";
             return false;
         }
 
@@ -210,7 +210,7 @@ public class WoodcutterWorker : WorkerBrain
 
         if (!carryingWood && carried.GetEmptySlots() == 0)
         {
-            return Abort("Inventory full");
+            return Abort("$dw_reason_inventory_full");
         }
 
         bool low = carried.GetEmptySlots() <= FullSlots;
@@ -229,10 +229,10 @@ public class WoodcutterWorker : WorkerBrain
                 _phase = Phase.Walk;
                 SetStatus(kind switch
                 {
-                    TargetKind.Drop => "Collecting wood",
-                    TargetKind.Log => "Walking to a log",
-                    TargetKind.Stump => "Walking to a stump",
-                    _ => "Walking to a tree",
+                    TargetKind.Drop => "$dw_status_collecting_wood",
+                    TargetKind.Log => "$dw_status_walking_to_log",
+                    TargetKind.Stump => "$dw_status_walking_to_stump",
+                    _ => "$dw_status_walking_to_tree",
                 });
             }
             else
@@ -340,7 +340,7 @@ public class WoodcutterWorker : WorkerBrain
     /// <summary>Ends the round and leaves the reason on the bed until the next round.</summary>
     private bool Abort(string reason)
     {
-        DvergrWorkersPlugin.Log.LogInfo("Woodcutter stopping: " + reason);
+        DvergrWorkersPlugin.Log.LogInfo("Woodcutter stopping: " + Text.Show(reason));
         IdleNote = reason;
         EndRound(finished: false);
         return false;
@@ -365,7 +365,7 @@ public class WoodcutterWorker : WorkerBrain
                 {
                     _phase = Phase.Pickup;
                     _timer = 0f;
-                    SetStatus("Collecting wood");
+                    SetStatus("$dw_status_collecting_wood");
                 }
                 else
                 {
@@ -373,9 +373,9 @@ public class WoodcutterWorker : WorkerBrain
                     _timer = WindupTime;
                     SetStatus(_kind switch
                     {
-                        TargetKind.Tree => "Chopping a tree",
-                        TargetKind.Stump => "Clearing a stump",
-                        _ => "Chopping a log",
+                        TargetKind.Tree => "$dw_status_chopping_tree",
+                        TargetKind.Stump => "$dw_status_clearing_stump",
+                        _ => "$dw_status_chopping_log",
                     });
                 }
                 break;
@@ -477,7 +477,7 @@ public class WoodcutterWorker : WorkerBrain
         {
             if (canWait)
             {
-                DvergrWorkersPlugin.Log.LogInfo("Woodcutter keeps its wood for now: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Woodcutter keeps its wood for now: " + Text.Show(Logistics.Reason));
                 _deliveryBlocked = true;
                 _phase = Phase.Plan;
                 return true;
@@ -486,7 +486,7 @@ public class WoodcutterWorker : WorkerBrain
         }
 
         _phase = Phase.Deliver;
-        SetStatus("Delivering wood to a chest");
+        SetStatus("$dw_status_delivering_wood");
         return true;
     }
 
@@ -511,7 +511,7 @@ public class WoodcutterWorker : WorkerBrain
                 _phase = Phase.Plan;
                 return true;
             }
-            return Abort("Output chests are full");
+            return Abort("$dw_reason_output_full");
         }
 
         // Still carrying wood (another kind, or the chest filled up): try the next chest for it.

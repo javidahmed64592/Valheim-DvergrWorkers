@@ -90,8 +90,8 @@ public class FarmerWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _handledLastRound > 0
-            ? "Idle (planted/harvested " + _handledLastRound + " last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_farmed", _handledLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -470,7 +470,7 @@ public class FarmerWorker : WorkerBrain
 
         if (!System.Linq.Enumerable.Any(PlantCatalogue.Crops))
         {
-            IdleNote = "No crops found in the cultivator";
+            IdleNote = "$dw_status_no_crops";
             return false;
         }
 
@@ -478,7 +478,7 @@ public class FarmerWorker : WorkerBrain
         _survey.RefreshIfStale(Home, WorkerConfig.JobRadius.Value, WorkerConfig.JobRadius.Value + TaskRadiusTolerance);
         if (!_survey.Ready)
         {
-            IdleNote = "Looking over the fields";
+            IdleNote = "$dw_status_looking_over_fields";
             RetrySoon(1f);
             return false;
         }
@@ -530,8 +530,8 @@ public class FarmerWorker : WorkerBrain
     {
         return (_noSupply, _noSpots) switch
         {
-            (true, false) => "Waiting for seeds in a chest",
-            (false, true) => "No free tilled soil to plant",
+            (true, false) => "$dw_status_waiting_for_seeds",
+            (false, true) => "$dw_status_no_tilled_soil",
             _ => null,
         };
     }
@@ -559,9 +559,16 @@ public class FarmerWorker : WorkerBrain
         };
     }
 
+    /// <summary>What a ripe plant gives, e.g. "$item_carrot", or its object name if it gives nothing.</summary>
+    private static string RipeName(Pickable ripe)
+    {
+        ItemDrop item = ripe.m_itemPrefab != null ? ripe.m_itemPrefab.GetComponent<ItemDrop>() : null;
+        return item != null ? item.m_itemData.m_shared.m_name : Utils.GetPrefabName(ripe.gameObject).Replace("Pickable_", "");
+    }
+
     private bool Abort(string reason)
     {
-        DvergrWorkersPlugin.Log.LogInfo("Farmer stopping: " + reason);
+        DvergrWorkersPlugin.Log.LogInfo("Farmer stopping: " + Text.Show(reason));
         IdleNote = reason;
         EndRound(finished: false);
         return false;
@@ -581,7 +588,7 @@ public class FarmerWorker : WorkerBrain
         if (_batchSpots.Count > 0 && _batchType != null
             && Logistics.Carried.CountItems(_batchType.RequiredShared) >= _batchType.Amount)
         {
-            return BeginWalk(_batchSpots[0], "Walking to plant " + _batchType.Prefab.name.Replace("sapling_", ""), Phase.Plant);
+            return BeginWalk(_batchSpots[0], Text.Of("$dw_status_walking_to_plant", _batchType.Piece.m_name), Phase.Plant);
         }
         _batchSpots.Clear();
 
@@ -595,7 +602,7 @@ public class FarmerWorker : WorkerBrain
             {
                 _phase = Phase.Walk;
                 _nextAfterWalk = Phase.Gather;
-                SetStatus("Tidying up the field");
+                SetStatus("$dw_status_tidying_field");
             }
             else
             {
@@ -615,7 +622,7 @@ public class FarmerWorker : WorkerBrain
             {
                 _phase = Phase.Walk;
                 _nextAfterWalk = Phase.Harvest;
-                SetStatus("Walking to ripe " + ripe.name.Replace("Pickable_", "").Replace("(Clone)", ""));
+                SetStatus(Text.Of("$dw_status_walking_to_ripe", RipeName(ripe)));
             }
             else
             {
@@ -728,10 +735,10 @@ public class FarmerWorker : WorkerBrain
                 if (Logistics.BeginFetchAny(i => i.m_shared.m_name == shared, missing))
                 {
                     _phase = Phase.Fetch;
-                    SetStatus("Fetching " + shared.TrimStart('$').Replace("item_", "") + " to plant");
+                    SetStatus(Text.Of("$dw_status_fetching_to_plant", shared));
                     return true;
                 }
-                DvergrWorkersPlugin.Log.LogInfo("Farmer fetch failed: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Farmer fetch failed: " + Text.Show(Logistics.Reason));
                 _ = _failedTypes.Add(type);
                 _batchSpots.Clear();
                 continue;
@@ -750,7 +757,7 @@ public class FarmerWorker : WorkerBrain
             case LogisticsResult.Moving:
                 return true;
             case LogisticsResult.Failed:
-                DvergrWorkersPlugin.Log.LogInfo("Farmer fetch failed: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Farmer fetch failed: " + Text.Show(Logistics.Reason));
                 if (_batchType != null)
                 {
                     _ = _failedTypes.Add(_batchType);
@@ -880,7 +887,7 @@ public class FarmerWorker : WorkerBrain
             _planted++;
             _plantedSpots.Add(new Occupied { Position = spot, Radius = type.Plant.m_growRadius });
             _plantedByFamily[type.Family] = (_plantedByFamily.TryGetValue(type.Family, out int n) ? n : 0) + 1;
-            SetStatus("Planting " + type.Prefab.name.Replace("sapling_", ""));
+            SetStatus(Text.Of("$dw_status_planting", type.Piece.m_name));
         }
 
         _phase = Phase.Plan;
@@ -913,7 +920,7 @@ public class FarmerWorker : WorkerBrain
         _collectTries = 0;
         _timer = HarvestWait;
         _phase = Phase.Collect;
-        SetStatus("Harvesting");
+        SetStatus("$dw_status_harvesting");
         return true;
     }
 
@@ -1016,7 +1023,7 @@ public class FarmerWorker : WorkerBrain
                 return Abort(Logistics.Reason);
             }
             _phase = Phase.Deposit;
-            SetStatus("Delivering crops to a chest");
+            SetStatus("$dw_status_delivering_crops");
             return true;
         }
 
@@ -1029,7 +1036,7 @@ public class FarmerWorker : WorkerBrain
                 return false;
             }
             _phase = Phase.Deposit;
-            SetStatus("Returning seeds to a chest");
+            SetStatus("$dw_status_returning_seeds");
             return true;
         }
 
@@ -1043,7 +1050,7 @@ public class FarmerWorker : WorkerBrain
         {
             LogisticsResult.Moving => true,
             LogisticsResult.Failed => Abort(Logistics.Reason),
-            _ => Logistics.Transferred == 0 ? Abort("Output chests are full") : StartDeposit(),
+            _ => Logistics.Transferred == 0 ? Abort("$dw_reason_output_full") : StartDeposit(),
         };
     }
 }

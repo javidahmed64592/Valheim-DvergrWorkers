@@ -33,7 +33,7 @@ public class EitrWorker : MachineTenderWorker
 
     protected override string AllowedMachines => "eitrrefinery";
 
-    protected override string NoMachinesNote => "No eitr refinery nearby";
+    protected override string NoMachinesNote => "$dw_status_no_eitr_refinery";
 
     protected override bool IsSurplus(ItemDrop.ItemData item)
     {
@@ -179,7 +179,7 @@ public class EitrWorker : MachineTenderWorker
         }
 
         _stage = TapStage.Walk;
-        SetStatus("Walking to a sap extractor");
+        SetStatus("$dw_status_walking_to_sap_extractor");
         return true;
     }
 
@@ -192,7 +192,7 @@ public class EitrWorker : MachineTenderWorker
                 ViewOf(_extractor).ClaimOwnership();
                 _stage = TapStage.Tap;
                 _timer = 0.2f;
-                SetStatus("Tapping the sap extractor");
+                SetStatus("$dw_status_tapping_sap_extractor");
                 break;
 
             case NavResult.Failed:
