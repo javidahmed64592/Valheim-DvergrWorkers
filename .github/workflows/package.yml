@@ -15,7 +15,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Build & Package
-        run: bash package.sh
+        run: bash .github/scripts/package.sh
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ env.NAMESPACE }}-${{ env.NAME }}-${{ env.VERSION }}

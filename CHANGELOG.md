@@ -6,6 +6,7 @@
 - Bed and chest names, hover text, worker statuses and messages can now be translated (`Translations/English.json`). Statuses are translated by each player's game, so every player sees them in their own language.
 - Statuses now use the game's own names for items and pieces, e.g. "Walking to the Smelter" and "Waiting for Coal in a chest".
 - Added a CI check that the version matches in every file.
+- Moved `package.sh` into `.github/scripts` and made it the same for every mod: the name, version and DLL now come from `manifest.json` and the `.csproj`.
 
 ## 0.14.0
 
