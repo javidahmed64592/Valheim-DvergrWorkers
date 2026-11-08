@@ -383,6 +383,12 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     /// </summary>
     private const int MaxMissesInARow = 3;
 
+    /// <summary>
+    /// How far (metres) a path may end from the spot it was asked for and still count as getting there; the navmesh
+    /// moves a goal on top of furniture or against a wall a little way, while a path that is cut off stops far short.
+    /// </summary>
+    private const float PartialPathSlack = 2f;
+
     private readonly List<Vector3> _candidates = [];
 
     /// <summary>
@@ -456,7 +462,13 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
                     nearest = end;
                     nearestLength = PathLength(_pathScratch);
                 }
-                misses++;
+
+                // Only a path that stops well short of the spot says the target may be cut off. Reaching a spot that
+                // is just out of reach (the outer ring, which is nearest the worker and so tried first) says nothing.
+                if (Utils.DistanceXZ(end, candidate) > PartialPathSlack)
+                {
+                    misses++;
+                }
                 continue;
             }
             misses = 0;
@@ -488,8 +500,8 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             return found;
         }
 
-        // No path gets within reach: settle for whichever ends closest to the target.
-        if (bestGap < float.MaxValue)
+        // No path gets within reach: settle for whichever ends closest to the target, if that is any closer than here.
+        if (bestGap < Gap(here) - 0.5f)
         {
             best = nearest;
             _pathLength = nearestLength;
