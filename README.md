@@ -74,16 +74,8 @@ The bed's hover text indicates the worker's status (e.g., idle, working, resting
 **Taking a break:** press **Shift+E** on a worker's bed, or on the worker itself, to send it on a break.
 It finishes the round it is on, then starts no new ones (handy when the chests are filling with things you do not need right now) while still strolling about, sleeping at night and defending the base.
 Press **Shift+E** again to send it back to work.
-The break is kept on the bed, so it lasts through the worker respawning and the world being reloaded.
 
-**Finding a worker:** press **E** on a worker's bed to be shown the way to it:
-
-- A green arrow on your HUD sits over the worker, even through walls, with its name and distance. When the worker is off screen, the arrow clings to the edge of the screen and points the way to turn.
-- A trail of green arrows on the ground leads from you to the worker, along the path you would walk.
-- The worker glows green.
-
-This stops once you reach the worker, when you press **E** on the bed again, or after a few minutes.
-Only you see it.
+**Finding a worker:** press **E** on a worker's bed to be shown the way to it.
 
 ### Chests
 
@@ -127,7 +119,7 @@ For example, the farmer can keep replanting barley while the barley worker mills
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
-You can change the work radius, how often each role runs, how close workers need to get to their targets, how fast they respawn, whether they work at night, their inventory size, whether workers take each other's items from output chests, how close to a machine dropped items must be for machine workers to use them, and how the way to a worker is shown (`[Finder]`: when it stops, and whether to show the trail and the glow).
+
 
 ## Known Limitations
 
