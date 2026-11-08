@@ -77,6 +77,15 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     private float _escapeUntil;
     private Vector3 _escapeDir;
 
+    /// <summary>A first point to steer straight to before following the path, to get off a navmesh island.</summary>
+    private bool _hasVia;
+    private Vector3 _via;
+    private float _viaUntil;
+
+    /// <summary>What the last stand point search found for <see cref="_via"/>, used by <see cref="Begin"/>.</summary>
+    private bool _foundVia;
+    private Vector3 _foundViaPoint;
+
     /// <summary>Closest point on the solid colliders of an object (bounds for concave meshes, which can't be queried).</summary>
     public static Vector3 ClosestPointOnColliders(GameObject go, Vector3 from)
     {
@@ -136,6 +145,14 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _targetName = targetName;
         _rememberFailure = rememberFailure;
         ResetWalk();
+        _hasVia = _foundVia;
+        _via = _foundViaPoint;
+        if (_hasVia)
+        {
+            DvergrWorkersPlugin.Log.LogInfo("No path out from " + _transform.position + ", stepping to " + _via
+                + " first to reach " + targetName);
+        }
+        _viaUntil = Time.time + ViaTimeout;
         _walkLimit = Mathf.Max(WalkTimeout, WalkAllowance + (_pathLength * SecondsPerMetre));
         return true;
     }
@@ -164,6 +181,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         _stuckStrikes = 0;
         _escapes = 0;
         _escapeUntil = 0f;
+        _hasVia = false;
         _stuckSamplePos = _transform.position;
     }
 
@@ -176,6 +194,19 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         }
 
         _walkTimer += dt;
+
+        // Off a navmesh island first: straight to the launch point, then the path from there takes over.
+        if (_hasVia)
+        {
+            if (Utils.DistanceXZ(_transform.position, _via) > ViaArrive && Time.time < _viaUntil)
+            {
+                _ = SteerTowards(dt, _via);
+                return NavResult.Moving;
+            }
+            _hasVia = false;
+            _stuckSamplePos = _transform.position;
+            _stuckTimer = 0f;
+        }
 
         // Mid-escape: walk straight along the clearest direction for a moment to get free of whatever is wedging us.
         if (Time.time < _escapeUntil)
@@ -249,14 +280,20 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     /// <summary>Steers straight for the standing spot around obstacles, but never into water.</summary>
     private bool SteerDirect(float dt)
     {
-        Vector3 dir = _standPoint - _transform.position;
+        return SteerTowards(dt, _standPoint);
+    }
+
+    /// <summary>Steers straight for <paramref name="goal"/> around obstacles, but never into water.</summary>
+    private bool SteerTowards(float dt, Vector3 goal)
+    {
+        Vector3 dir = goal - _transform.position;
         dir.y = 0f;
         if (dir.sqrMagnitude > 1f && IsWaterAhead(_transform.position + (dir.normalized * 1.5f)))
         {
             _ai.StopMoving();
             return false;
         }
-        return _ai.MoveAndAvoid(dt, _standPoint, 0.6f, false);
+        return _ai.MoveAndAvoid(dt, goal, 0.6f, false);
     }
 
     /// <summary>Picks the direction with the most free space (leaning towards the goal) and heads that way briefly.</summary>
@@ -428,6 +465,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
     {
         best = Vector3.zero;
         _pathLength = 0f;
+        _foundVia = false;
         Vector3 here = _transform.position;
         if (InReach(here) || (!strict && Gap(here) <= _reach * ToleranceFactor))
         {
@@ -463,6 +501,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
         float nearestLength = 0f;
         int queries = 0;
         int misses = 0;
+        float farthestEnd = 0f;
         foreach (Vector3 candidate in _candidates)
         {
             if (queries++ >= MaxPathQueries || misses >= MaxMissesInARow)
@@ -480,6 +519,7 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
 
             // The path may stop short, or the navmesh may have snapped the goal elsewhere: judge from where we will really stand.
             Vector3 end = _pathScratch[_pathScratch.Count - 1];
+            farthestEnd = Mathf.Max(farthestEnd, Utils.DistanceXZ(end, here));
             if (!InReach(end) || !CanSee(end)
                 || Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
             {
@@ -523,9 +563,20 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
                 return true;
             }
         }
-        if (found || strict)
+        if (found)
         {
-            return found;
+            return true;
+        }
+
+        // Every path ended right next to the worker: it is standing on a scrap of navmesh cut off from the rest
+        // (between beds, behind an open door), which it can step off although the navmesh says it cannot.
+        if (farthestEnd < IslandRadius && TryLeaveIsland(here, out best))
+        {
+            return true;
+        }
+        if (strict)
+        {
+            return false;
         }
 
         // No path gets within reach: settle for whichever ends closest to the target, if that is any closer than here.
@@ -534,6 +585,87 @@ internal sealed class WorkerNavigator(MonsterAI ai, Character character, WorkerR
             best = nearest;
             _pathLength = nearestLength;
             return true;
+        }
+        return false;
+    }
+
+    /// <summary>How far (metres) every path may end from the worker for it to count as cut off.</summary>
+    private const float IslandRadius = 3f;
+
+    private const int MaxIslandQueries = 6;
+    private const float ViaArrive = 0.7f;
+    private const float ViaTimeout = 4f;
+
+    private static readonly float[] LaunchRadii = [3.5f, 2f];
+    private readonly List<Vector3> _launches = [];
+
+    /// <summary>
+    /// Looks for a point a couple of metres away that the worker can walk to in a straight line and from which a
+    /// path does lead to within reach of the target. The navmesh leaves out gaps narrower than a worker plus a margin
+    /// and steps higher than a stair (a bed, say), so a worker can stand somewhere it has no path out of. On success
+    /// the launch point is noted for <see cref="Begin"/>, which steers there before following the path.
+    /// </summary>
+    private bool TryLeaveIsland(Vector3 here, out Vector3 best)
+    {
+        best = Vector3.zero;
+
+        // Head for a spot the worker could stand on and see the target from, nearest the worker first.
+        Vector3 goal = Vector3.zero;
+        bool haveGoal = false;
+        foreach (Vector3 candidate in _candidates)
+        {
+            if (InReach(candidate) && CanSee(candidate))
+            {
+                goal = candidate;
+                haveGoal = true;
+                break;
+            }
+        }
+        if (!haveGoal)
+        {
+            return false;
+        }
+
+        Vector3 waist = Vector3.up * 0.8f;
+        _launches.Clear();
+        foreach (float radius in LaunchRadii)
+        {
+            for (int a = 0; a < StandAngles; a++)
+            {
+                float rad = a * Mathf.PI * 2f / StandAngles;
+                Vector3 launch = here + (new Vector3(Mathf.Cos(rad), 0f, Mathf.Sin(rad)) * radius);
+                if (Physics.Raycast(launch + (Vector3.up * 1.5f), Vector3.down, out RaycastHit hit, 4f, _groundMask)
+                    && !IsUnderwater(hit.point)
+                    && !Physics.Linecast(here + waist, hit.point + waist, _obstacleMask, QueryTriggerInteraction.Ignore)
+                    && !Physics.CheckCapsule(hit.point + (Vector3.up * 0.5f), hit.point + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
+                {
+                    _launches.Add(hit.point);
+                }
+            }
+        }
+
+        int queries = 0;
+        foreach (Vector3 launch in _launches)
+        {
+            if (queries++ >= MaxIslandQueries)
+            {
+                break;
+            }
+            if (!WorkerPaths.GetPath(launch, goal, _pathScratch, _ai.m_pathAgentType, requireFullPath: false)
+                || _pathScratch.Count == 0)
+            {
+                continue;
+            }
+            Vector3 end = _pathScratch[_pathScratch.Count - 1];
+            if (InReach(end) && CanSee(end)
+                && !Physics.CheckCapsule(end + (Vector3.up * 0.5f), end + (Vector3.up * 1.4f), 0.4f, _obstacleMask))
+            {
+                best = end;
+                _pathLength = Vector3.Distance(here, launch) + PathLength(_pathScratch);
+                _foundVia = true;
+                _foundViaPoint = launch;
+                return true;
+            }
         }
         return false;
     }
