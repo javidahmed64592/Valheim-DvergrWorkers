@@ -74,7 +74,7 @@ internal sealed class WorkerSleep
     /// </summary>
     public bool Rest(float dt, string bedId, out string status)
     {
-        status = "Sleeping";
+        status = "$dw_status_sleeping";
         WorkerBed bed = WorkerBed.FindLoaded(bedId);
         if (bed == null || !bed.TryGetSleepSpot(out Vector3 centre, out Vector3 axis, out _))
         {
@@ -95,7 +95,7 @@ internal sealed class WorkerSleep
         }
 
         // Like a player, walk to whichever side of the bed is nearest and get in from there.
-        status = "Heading to bed";
+        status = "$dw_status_heading_to_bed";
         _walkTime += dt;
         if (_walkTime > WalkTimePerAttempt)
         {

@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>DvergrWorkers</AssemblyName>
     <Description>Dvergr workers help around your base and defend it when it is under attack.</Description>
-    <Version>0.14.0</Version>
+    <Version>0.15.0</Version>
     <LangVersion>latest</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
@@ -19,6 +19,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- Translations/<Language>.json, embedded and loaded by Translations.Load. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Translations\*.json" LogicalName="DvergrWorkers.Translations.%(Filename).json" />
   </ItemGroup>
 
   <!-- In CI (GitHub Actions) there is no local Valheim install, so game/BepInEx DLLs

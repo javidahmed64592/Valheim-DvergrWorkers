@@ -94,8 +94,8 @@ public class TreeFarmerWorker : WorkerBrain
     protected override string IdleStatus()
     {
         return _plantedLastRound > 0
-            ? "Idle (planted " + _plantedLastRound + " trees last round)"
-            : "Idle";
+            ? Text.Of("$dw_status_idle_planted_trees", _plantedLastRound)
+            : "$dw_status_idle";
     }
 
     protected override void OnRoundEnded(bool finished)
@@ -445,7 +445,7 @@ public class TreeFarmerWorker : WorkerBrain
 
         if (!System.Linq.Enumerable.Any(PlantCatalogue.Trees))
         {
-            IdleNote = "No tree saplings found in the cultivator";
+            IdleNote = "$dw_status_no_saplings";
             return false;
         }
 
@@ -454,7 +454,7 @@ public class TreeFarmerWorker : WorkerBrain
             WorkerConfig.TreeBuildingClearance.Value);
         if (!_survey.Ready)
         {
-            IdleNote = "Looking over the ground";
+            IdleNote = "$dw_status_looking_over_ground";
             RetrySoon(1f);
             return false;
         }
@@ -514,9 +514,9 @@ public class TreeFarmerWorker : WorkerBrain
     {
         return (_full, _noSupply, _noSpots) switch
         {
-            (true, _, _) => "The forest is full",
-            (_, true, false) => "Waiting for tree seeds in a chest",
-            (_, false, true) => "No suitable ground to plant trees",
+            (true, _, _) => "$dw_status_forest_full",
+            (_, true, false) => "$dw_status_waiting_for_tree_seeds",
+            (_, false, true) => "$dw_status_no_tree_ground",
             _ => null,
         };
     }
@@ -590,7 +590,7 @@ public class TreeFarmerWorker : WorkerBrain
                 _looseType = type;
                 _walkingToSeed = true;
                 _phase = Phase.Walk;
-                SetStatus("Picking up fallen " + type.RequiredShared.TrimStart('$').Replace("item_", ""));
+                SetStatus(Text.Of("$dw_status_picking_up_fallen", type.RequiredShared));
                 return true;
             }
             _ = _looseFailed.Add(seed);
@@ -698,10 +698,10 @@ public class TreeFarmerWorker : WorkerBrain
                 if (Logistics.BeginFetchAny(i => i.m_shared.m_name == shared, missing))
                 {
                     _phase = Phase.Fetch;
-                    SetStatus("Fetching seeds to plant");
+                    SetStatus("$dw_status_fetching_seeds");
                     return true;
                 }
-                DvergrWorkersPlugin.Log.LogInfo("Tree farmer fetch failed: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Tree farmer fetch failed: " + Text.Show(Logistics.Reason));
                 _ = _failedTypes.Add(type);
                 _batchSpots.Clear();
                 continue;
@@ -720,7 +720,7 @@ public class TreeFarmerWorker : WorkerBrain
             case LogisticsResult.Moving:
                 return true;
             case LogisticsResult.Failed:
-                DvergrWorkersPlugin.Log.LogInfo("Tree farmer fetch failed: " + Logistics.Reason);
+                DvergrWorkersPlugin.Log.LogInfo("Tree farmer fetch failed: " + Text.Show(Logistics.Reason));
                 if (_batchType != null)
                 {
                     _ = _failedTypes.Add(_batchType);
@@ -745,7 +745,7 @@ public class TreeFarmerWorker : WorkerBrain
         }
 
         _phase = Phase.Walk;
-        SetStatus("Walking to plant a " + _batchType.Prefab.name.Replace("sapling_", ""));
+        SetStatus(Text.Of("$dw_status_walking_to_plant", _batchType.Piece.m_name));
         return true;
     }
 
@@ -835,7 +835,7 @@ public class TreeFarmerWorker : WorkerBrain
             _planted++;
             _plantedSpots.Add(new Occupied { Position = spot, Radius = room });
             _plantedByFamily[type.Family] = (_plantedByFamily.TryGetValue(type.Family, out int n) ? n : 0) + 1;
-            SetStatus("Planting a " + type.Prefab.name.Replace("sapling_", ""));
+            SetStatus(Text.Of("$dw_status_planting", type.Piece.m_name));
         }
 
         _phase = Phase.Plan;
@@ -855,7 +855,7 @@ public class TreeFarmerWorker : WorkerBrain
         }
 
         _phase = Phase.Return;
-        SetStatus("Returning spare seeds to a chest");
+        SetStatus("$dw_status_returning_seeds");
         return true;
     }
 

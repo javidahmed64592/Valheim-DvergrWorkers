@@ -45,10 +45,8 @@ internal static class WorkerPrefabs
             RegisterBed(role);
         }
 
-        RegisterChest(ChestKind.Input, "Worker Input Chest", new Color(0.6f, 0.8f, 1f),
-            "Stores the materials your Dvergr workers need for their tasks. Workers within range use every input chest in their job radius, closest first.");
-        RegisterChest(ChestKind.Output, "Worker Output Chest", new Color(0.65f, 1f, 0.65f),
-            "Collects what your Dvergr workers produce. Workers within range use every output chest in their job radius, closest first.");
+        RegisterChest(ChestKind.Input, "$piece_dw_inputchest", new Color(0.6f, 0.8f, 1f), "$piece_dw_inputchest_description");
+        RegisterChest(ChestKind.Output, "$piece_dw_outputchest", new Color(0.65f, 1f, 0.65f), "$piece_dw_outputchest_description");
     }
 
     private static void RegisterChest(ChestKind kind, string displayName, Color tint, string description)

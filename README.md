@@ -119,7 +119,18 @@ For example, the farmer can keep replanting barley while the barley worker mills
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
+Settings marked "(Synced with server)" use the server's values when the server has the mod installed.
 
+## Compatibility
+
+- Mods that change Dvergr behaviour, beds, or the machines workers tend (smelters, kilns, windmills, spinning wheels, eitr refineries, fires) may change how workers behave.
+- Mods that automatically move items in and out of chests may take items from worker chests before the workers do.
+- This mod has not been tested with a gamepad, only with keyboard and mouse.
+
+## Uninstalling
+
+Worker beds, worker chests and the workers themselves disappear from the world when the mod is removed, along with anything stored in the chests and the workers' own inventories.
+Empty the worker chests and deconstruct the beds and chests first to get their materials back.
 
 ## Known Limitations
 

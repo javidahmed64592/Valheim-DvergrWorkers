@@ -21,7 +21,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.dvergrworkers";
     public const string PluginName = "Dvergr Workers";
-    public const string PluginVersion = "0.14.0";
+    public const string PluginVersion = "0.15.0";
 
     internal static BepInEx.Logging.ManualLogSource Log { get; private set; }
 
@@ -31,6 +31,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
     {
         Log = Logger;
         WorkerConfig.Bind(Config);
+        Translations.Load();
 
         _harmony = new Harmony(PluginGUID);
         _harmony.PatchAll();
@@ -98,42 +99,43 @@ internal static class WorkerConfig
     public static ConfigEntry<bool> FinderTrail;
     public static ConfigEntry<bool> FinderGlow;
 
+    /// <summary>A setting that uses the server's value when the server has the mod.</summary>
+    public static ConfigDescription Synced(string description, AcceptableValueBase range = null)
+    {
+        return new ConfigDescription(description + " (Synced with server)", range,
+            new ConfigurationManagerAttributes { IsAdminOnly = true });
+    }
+
     public static void Bind(ConfigFile config)
     {
         JobRadius = config.Bind("Workers", "JobRadius", 30f,
-            new ConfigDescription("Workers wander and perform tasks within this distance (metres) of their bed. A small tolerance is added for tasks.",
-                new AcceptableValueRange<float>(5f, 100f)));
+            Synced("Workers wander and perform tasks within this distance (metres) of their bed. A small tolerance is added for tasks.", new AcceptableValueRange<float>(5f, 100f)));
         RespawnDelay = config.Bind("Workers", "RespawnDelay", 30f,
-            new ConfigDescription("Seconds after a worker is lost before its bed spawns a replacement.",
-                new AcceptableValueRange<float>(1f, 600f)));
+            Synced("Seconds after a worker is lost before its bed spawns a replacement.", new AcceptableValueRange<float>(1f, 600f)));
         ThreatRadius = config.Bind("Workers", "ThreatRadius", 25f,
-            new ConfigDescription("Workers drop their task and defend the base when an enemy hurts a player or worker within this distance (metres). Enemies that have not attacked anyone are ignored.",
-                new AcceptableValueRange<float>(5f, 80f)));
+            Synced("Workers drop their task and defend the base when an enemy hurts a player or worker within this distance (metres). Enemies that have not attacked anyone are ignored.", new AcceptableValueRange<float>(5f, 80f)));
         ThreatRetryDelay = config.Bind("Workers", "ThreatRetryDelay", 10f,
-            new ConfigDescription("Seconds after being interrupted before a worker goes back to work (once no one nearby has been hurt for a few seconds), instead of waiting for the next task interval.",
-                new AcceptableValueRange<float>(1f, 120f)));
+            Synced("Seconds after being interrupted before a worker goes back to work (once no one nearby has been hurt for a few seconds), instead of waiting for the next task interval.", new AcceptableValueRange<float>(1f, 120f)));
         WorkAtNight = config.Bind("Workers", "WorkAtNight", false,
-            "If false, workers rest at night and only work in daylight.");
+            Synced("If false, workers rest at night and only work in daylight."));
 
         WanderRadius = config.Bind("Idle", "WanderRadius", 12f,
-            new ConfigDescription("Idle workers stroll within this distance (metres) of their bed, favouring spots close to it. Never more than JobRadius.",
-                new AcceptableValueRange<float>(3f, 100f)));
+            Synced("Idle workers stroll within this distance (metres) of their bed, favouring spots close to it. Never more than JobRadius.", new AcceptableValueRange<float>(3f, 100f)));
         WanderPauseMin = config.Bind("Idle", "PauseMin", 4f,
-            new ConfigDescription("Shortest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
+            Synced("Shortest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
         WanderPauseMax = config.Bind("Idle", "PauseMax", 12f,
-            new ConfigDescription("Longest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
+            Synced("Longest time (seconds) an idle worker stands still between strolls.", new AcceptableValueRange<float>(0f, 120f)));
         PersonalSpace = config.Bind("Idle", "PersonalSpace", 2.5f,
-            new ConfigDescription("An idle worker that a player stands closer to than this (metres) steps out of their way.", new AcceptableValueRange<float>(0.5f, 10f)));
+            Synced("An idle worker that a player stands closer to than this (metres) steps out of their way.", new AcceptableValueRange<float>(0.5f, 10f)));
 
         TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
-            "Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched.");
+            Synced("Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched."));
         GroundPickupRadius = config.Bind("Workers", "GroundPickupRadius", 4f,
-            new ConfigDescription("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.",
-                new AcceptableValueRange<float>(0f, 8f)));
+            Synced("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.", new AcceptableValueRange<float>(0f, 8f)));
         InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
-            new ConfigDescription("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
+            Synced("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
         InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,
-            new ConfigDescription("Rows in a worker's own inventory.", new AcceptableValueRange<int>(1, 8)));
+            Synced("Rows in a worker's own inventory.", new AcceptableValueRange<int>(1, 8)));
 
         FinderArriveDistance = config.Bind("Finder", "ArriveDistance", 3f,
             new ConfigDescription("Pressing E on a worker's bed shows the way to its worker. It stops once you are this close (metres) to the worker.",
@@ -152,26 +154,26 @@ internal static class WorkerConfig
         }
 
         RefuelBelow = config.Bind(WorkerRoles.Refueler.Name, "RefuelBelow", 0.6f,
-            new ConfigDescription("A fire is topped up once its fuel falls to this fraction of its maximum.", new AcceptableValueRange<float>(0.1f, 1f)));
+            Synced("A fire is topped up once its fuel falls to this fraction of its maximum.", new AcceptableValueRange<float>(0.1f, 1f)));
         SeedReserve = config.Bind(WorkerRoles.Farmer.Name, "SeedReserve", 4,
-            new ConfigDescription("The farmer plants raw ingredients (a carrot, a turnip...) to make more seeds once a crop's seeds fall to this many or fewer.", new AcceptableValueRange<int>(0, 50)));
+            Synced("The farmer plants raw ingredients (a carrot, a turnip...) to make more seeds once a crop's seeds fall to this many or fewer.", new AcceptableValueRange<int>(0, 50)));
         PlantsPerTrip = config.Bind(WorkerRoles.Farmer.Name, "PlantsPerTrip", 8,
-            new ConfigDescription("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
+            Synced("How many of one crop the farmer plants before moving on to the next, which keeps the crops evenly mixed.", new AcceptableValueRange<int>(1, 50)));
         FarmerPlantsLooseSeeds = config.Bind(WorkerRoles.Farmer.Name, "PlantLooseSeeds", true,
-            "The farmer tidies up seeds and crops lying on tilled soil in its job area. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest.");
+            Synced("The farmer tidies up seeds and crops lying on tilled soil in its job area. Seeds are planted before anything else and spares go to the input chest; crops such as carrots are planted when their seeds run low and otherwise go to the output chest."));
         TreeFarmerPlantsLooseSeeds = config.Bind(WorkerRoles.TreeFarmer.Name, "PlantLooseSeeds", true,
-            "The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area near somewhere it would plant a tree itself (see LooseSeedRadius). It plants as many as it can, nearest where they lay first, and returns the rest to the input chest.");
+            Synced("The tree farmer picks up tree seeds, cones and acorns lying on the ground in its job area near somewhere it would plant a tree itself (see LooseSeedRadius). It plants as many as it can, nearest where they lay first, and returns the rest to the input chest."));
         TreeLooseSeedRadius = config.Bind(WorkerRoles.TreeFarmer.Name, "LooseSeedRadius", 10f,
-            new ConfigDescription("Loose tree seeds are picked up if there is somewhere to plant them within this distance (metres), e.g. a stack dropped on a path next to open ground.", new AcceptableValueRange<float>(1f, 30f)));
+            Synced("Loose tree seeds are picked up if there is somewhere to plant them within this distance (metres), e.g. a stack dropped on a path next to open ground.", new AcceptableValueRange<float>(1f, 30f)));
         MaxTrees = config.Bind(WorkerRoles.TreeFarmer.Name, "MaxTrees", 40,
-            new ConfigDescription("The tree farmer stops planting once the job area holds this many trees and saplings, wild ones included.", new AcceptableValueRange<int>(1, 500)));
+            Synced("The tree farmer stops planting once the job area holds this many trees and saplings, wild ones included.", new AcceptableValueRange<int>(1, 500)));
         TreesPerTrip = config.Bind(WorkerRoles.TreeFarmer.Name, "TreesPerTrip", 5,
-            new ConfigDescription("How many of one species the tree farmer plants before moving on to the next.", new AcceptableValueRange<int>(1, 50)));
+            Synced("How many of one species the tree farmer plants before moving on to the next.", new AcceptableValueRange<int>(1, 50)));
         TreeBuildingClearance = config.Bind(WorkerRoles.TreeFarmer.Name, "BuildingClearance", 8f,
-            new ConfigDescription("Trees are never planted closer than this (metres) to any building piece.", new AcceptableValueRange<float>(1f, 40f)));
+            Synced("Trees are never planted closer than this (metres) to any building piece.", new AcceptableValueRange<float>(1f, 40f)));
         TreesPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "TreesPerRound", 3,
-            new ConfigDescription("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
+            Synced("How many standing trees a woodcutter fells per round.", new AcceptableValueRange<int>(1, 20)));
         StumpsPerRound = config.Bind(WorkerRoles.Woodcutter.Name, "StumpsPerRound", 10,
-            new ConfigDescription("How many leftover tree stumps a woodcutter clears per round. 0 leaves stumps alone.", new AcceptableValueRange<int>(0, 50)));
+            Synced("How many leftover tree stumps a woodcutter clears per round. 0 leaves stumps alone.", new AcceptableValueRange<int>(0, 50)));
     }
 }

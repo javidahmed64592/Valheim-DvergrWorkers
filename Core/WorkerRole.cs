@@ -25,7 +25,12 @@ internal sealed class WorkerRole
 {
     /// <summary>Short name used for config sections, prefab names and bed hover text, e.g. "Repair".</summary>
     public string Name;
-    public string BedDescription;
+
+    /// <summary>Lower-case <see cref="Name"/>, used in translation tokens.</summary>
+    private string Key => Name.ToLowerInvariant();
+
+    /// <summary>The bed's description (a translation token).</summary>
+    public string BedDescription => "$piece_dw_" + Key + "bed_description";
 
     /// <summary>The <see cref="WorkerBrain"/> subclass added to the worker prefab.</summary>
     public Type BrainType;
@@ -59,17 +64,21 @@ internal sealed class WorkerRole
     /// <summary>Name shown to players when it differs from <see cref="Name"/> (which is used for config and prefabs).</summary>
     public string DisplayName;
 
+    /// <summary>English name for logs.</summary>
     public string Title => DisplayName ?? Name;
-    public string BedName => Title + " Bed";
-    public string WorkerName => Title + " Dvergr";
+
+    /// <summary>The bed's name (a translation token), e.g. "Repair Bed".</summary>
+    public string BedName => "$piece_dw_" + Key + "bed";
+
+    /// <summary>The worker's name (a translation token), e.g. "Repair Dvergr".</summary>
+    public string WorkerName => "$dw_worker_" + Key;
 
     public void BindConfig(ConfigFile config)
     {
         Interval = config.Bind(Name, "TaskInterval", DefaultInterval,
-            new ConfigDescription("Seconds between task rounds.", new AcceptableValueRange<float>(5f, 1800f)));
+            WorkerConfig.Synced("Seconds between task rounds.", new AcceptableValueRange<float>(5f, 1800f)));
         Reach = config.Bind(Name, "ReachDistance", DefaultReach,
-            new ConfigDescription("How close (metres) the worker must get to a target before working on it.",
-                new AcceptableValueRange<float>(1.5f, 12f)));
+            WorkerConfig.Synced("How close (metres) the worker must get to a target before working on it.", new AcceptableValueRange<float>(1.5f, 12f)));
     }
 }
 
@@ -78,7 +87,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Repair = new()
     {
         Name = "Repair",
-        BedDescription = "A bed for a Dvergr repairman that fixes and maintains the base.",
         BrainType = typeof(RepairWorker),
         ToolPrefab = "Hammer",
         DefaultReach = 6f,
@@ -87,7 +95,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Woodcutter = new()
     {
         Name = "Woodcutter",
-        BedDescription = "A bed for a Dvergr woodcutter that fells trees and stores the wood in chests.",
         BrainType = typeof(WoodcutterWorker),
         ToolPrefab = "AxeIron",
         Chests = ChestUse.Output,
@@ -103,7 +110,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Blacksmith = new()
     {
         Name = "Blacksmith",
-        BedDescription = "A bed for a Dvergr blacksmith that tends to nearby charcoal kilns, smelters and blast furnaces.",
         BrainType = typeof(BlacksmithWorker),
         Chests = ChestUse.Both,
         Produces =
@@ -118,7 +124,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Refueler = new()
     {
         Name = "Refueler",
-        BedDescription = "A bed for a Dvergr refueler that keeps nearby torches, fires, braziers, stone ovens, hot tubs and shield generators running.",
         BrainType = typeof(RefuelerWorker),
         ToolPrefab = "Lantern",
         Chests = ChestUse.Input,
@@ -129,7 +134,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Farmer = new()
     {
         Name = "Farmer",
-        BedDescription = "A bed for a Dvergr farmer that plants and harvests crops.",
         BrainType = typeof(FarmerWorker),
         ToolPrefab = "Cultivator",
         Chests = ChestUse.Both,
@@ -146,7 +150,6 @@ internal static class WorkerRoles
     {
         Name = "TreeFarmer",
         DisplayName = "Tree Farmer",
-        BedDescription = "A bed for a Dvergr tree farmer that plants tree saplings.",
         BrainType = typeof(TreeFarmerWorker),
         ToolPrefab = "Cultivator",
         Chests = ChestUse.Input,
@@ -157,7 +160,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Barley = new()
     {
         Name = "Barley",
-        BedDescription = "A bed for a Dvergr miller that keeps nearby windmills fed with barley and delivers the flour.",
         BrainType = typeof(BarleyWorker),
         Chests = ChestUse.Both,
         Produces = ["$item_barleyflour"],
@@ -168,7 +170,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Flax = new()
     {
         Name = "Flax",
-        BedDescription = "A bed for a Dvergr spinner that keeps nearby spinning wheels fed with flax and delivers the linen thread.",
         BrainType = typeof(FlaxWorker),
         Chests = ChestUse.Both,
         Produces = ["$item_linenthread"],
@@ -179,7 +180,6 @@ internal static class WorkerRoles
     public static readonly WorkerRole Eitr = new()
     {
         Name = "Eitr",
-        BedDescription = "A bed for a Dvergr eitr refiner that keeps nearby eitr refineries fed with sap and soft tissue and delivers the eitr.",
         BrainType = typeof(EitrWorker),
         Chests = ChestUse.Both,
         Produces = ["$item_eitr"],

@@ -131,7 +131,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
     /// <summary>Status shown on the bed while between rounds.</summary>
     protected virtual string IdleStatus()
     {
-        return "Idle";
+        return "$dw_status_idle";
     }
 
     /// <summary>
@@ -255,7 +255,9 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         }
         _nextSlowReport = Time.time + SlowTickReportInterval;
 
-        string status = _status == before ? "\"" + before + "\"" : "\"" + before + "\" -> \"" + _status + "\"";
+        string status = _status == before
+            ? "\"" + Text.Show(before) + "\""
+            : "\"" + Text.Show(before) + "\" -> \"" + Text.Show(_status) + "\"";
         string details = paths > 0 ? paths + " path queries " + Format((float)pathMs) + " ms" : "no path queries";
         if (collections > 0)
         {
@@ -345,11 +347,11 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         bool onBreak = IsOnBreak();
         if (restTime)
         {
-            SetStatus("Resting");
+            SetStatus("$dw_status_resting");
         }
         else
         {
-            SetStatus(onBreak ? "On a break" : IdleNote ?? IdleStatus());
+            SetStatus(onBreak ? "$dw_status_on_break" : IdleNote ?? IdleStatus());
         }
 
         // At night go to bed and lie there until morning; anything dangerous (or daylight) gets us up again.
@@ -422,7 +424,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         WorkerBed bed = WorkerBed.FindLoaded(BedId);
         if (bed == null)
         {
-            user.Message(MessageHud.MessageType.Center, "This Dvergr's bed is too far away");
+            user.Message(MessageHud.MessageType.Center, "$dw_msg_bed_too_far");
             return false;
         }
         bed.TogglePaused(user);
@@ -439,12 +441,12 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
     {
         WorkerBed bed = WorkerBed.FindLoaded(BedId);
         bool paused = bed != null && bed.IsPaused;
-        string text = "<color=#cccccc>" + GetStatus() + "</color>";
+        string text = "<color=#cccccc>" + Text.Show(GetStatus()) + "</color>";
         if (paused && IsWorking)
         {
-            text += "\n<color=" + WorkerBed.BreakColour + ">Taking a break after this round</color>";
+            text += "\n<color=" + WorkerBed.BreakColour + ">$dw_break_after_round</color>";
         }
-        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (paused ? "Back to work" : "Take a break");
+        text += "\n[<color=yellow><b>$KEY_AltPlace + $KEY_Use</b></color>] " + (paused ? "$dw_back_to_work" : "$dw_take_break");
         return Localization.instance.Localize(text);
     }
 
@@ -471,12 +473,12 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         ChestUse needs = Role.Chests;
         if ((needs & ChestUse.Input) != 0 && !Logistics.HasChest(ChestKind.Input))
         {
-            IdleNote = "Needs an input chest nearby";
+            IdleNote = "$dw_status_needs_input_chest";
             return false;
         }
         if ((needs & ChestUse.Output) != 0 && !Logistics.HasChest(ChestKind.Output))
         {
-            IdleNote = "Needs an output chest nearby";
+            IdleNote = "$dw_status_needs_output_chest";
             return false;
         }
         return true;
@@ -527,7 +529,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
             return false;
         }
 
-        SetStatus("Heading back to bed");
+        SetStatus("$dw_status_heading_back_to_bed");
         _ = Ai.MoveTo(dt, Home, radius * 0.5f, false);
         return true;
     }
@@ -600,7 +602,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
         Vector3 toShore = _shore - transform.position;
         toShore.y = 0f;
         Ai.MoveTowards(toShore.normalized, true);
-        SetStatus("Getting out of the water");
+        SetStatus("$dw_status_leaving_water");
         return true;
     }
 
@@ -860,7 +862,7 @@ public abstract class WorkerBrain : MonoBehaviour, Interactable
 
     public string GetStatus()
     {
-        return Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.StatusKey, "Idle") : "Idle";
+        return Nview != null && Nview.IsValid() ? Nview.GetZDO().GetString(WorkerBed.StatusKey, "$dw_status_idle") : "$dw_status_idle";
     }
 
     protected void SetStatus(string status)

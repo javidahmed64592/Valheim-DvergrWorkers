@@ -71,3 +71,9 @@ The goal is to add worker NPCs to the game to help maintain player base, defend 
 - The worker should also hold any necessary tools or items required for the task they are performing.
 - Once the task is completed, the worker should return to an idle state and wait for the next task period.
 - Workers should not perform tasks during the night and should return to their beds to sleep.
+
+## Text and Translations
+
+- Every player-facing string (piece names, hover text, messages, statuses, voice lines) is a token in `Translations/English.json`, prefixed `dw_` (or `piece_dw_` for pieces).
+- Worker statuses, idle notes and logistics reasons are stored in the worker's data and read by every player, so store them untranslated: a token, or `Text.Of("$dw_token", words...)` for one with `$1`, `$2`... Turn them into words only when shown, with `Text.Show`.
+- Prefer the game's own tokens for item and piece names (`m_shared.m_name`, `Piece.m_name`, or `Text.NameOf`) over prefab names.

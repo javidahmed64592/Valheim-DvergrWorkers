@@ -151,7 +151,7 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
             return BeginFetch(Coordinated, maxCount, ChestKind.Output);
         }
 
-        Reason = "No chest with the items needed";
+        Reason = "$dw_reason_no_chest_with_items";
         return false;
     }
 
@@ -162,7 +162,8 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
     public bool BeginFetch(Func<ItemDrop.ItemData, bool> wanted, int maxCount = int.MaxValue, ChestKind from = ChestKind.Input)
     {
         _limit = maxCount;
-        return Begin(from, wanted, fetching: true, "No " + from.ToString().ToLowerInvariant() + " chest with the items needed");
+        return Begin(from, wanted, fetching: true,
+            from == ChestKind.Input ? "$dw_reason_no_input_chest_with_items" : "$dw_reason_no_output_chest_with_items");
     }
 
     /// <summary>
@@ -172,14 +173,14 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
     public bool BeginDeposit(Func<ItemDrop.ItemData, bool> filter, ChestKind to = ChestKind.Output)
     {
         _limit = int.MaxValue;
-        return Begin(to, filter, fetching: false, to == ChestKind.Output ? "Output chests are full" : "Input chests are full");
+        return Begin(to, filter, fetching: false, to == ChestKind.Output ? "$dw_reason_output_full" : "$dw_reason_input_full");
     }
 
     public LogisticsResult Step(float dt)
     {
         if (_chest == null || !_chest.IsUsable)
         {
-            Reason = "Chest disappeared";
+            Reason = "$dw_reason_chest_gone";
             return LogisticsResult.Failed;
         }
 
@@ -189,7 +190,7 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
                 return LogisticsResult.Moving;
 
             case NavResult.Failed:
-                Reason = "Could not reach the chest";
+                Reason = "$dw_reason_chest_unreachable";
                 _chest = null;
                 return LogisticsResult.Failed;
         }
@@ -212,7 +213,7 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
         List<WorkerChest> chests = WorkerChest.Find(kind, _home(), _radius(), _transform.position);
         if (chests.Count == 0)
         {
-            Reason = "Needs " + (kind == ChestKind.Input ? "an input" : "an output") + " chest nearby";
+            Reason = kind == ChestKind.Input ? "$dw_status_needs_input_chest" : "$dw_status_needs_output_chest";
             return false;
         }
 
@@ -231,7 +232,8 @@ internal sealed class WorkerLogistics(Humanoid humanoid, WorkerNavigator navigat
             return true;
         }
 
-        Reason = _roomButNoWay ? "Could not find a way to " + (kind == ChestKind.Input ? "an input" : "an output") + " chest" : noneReason;
+        string noWay = kind == ChestKind.Input ? "$dw_reason_no_way_input" : "$dw_reason_no_way_output";
+        Reason = _roomButNoWay ? noWay : noneReason;
         return false;
     }
 
