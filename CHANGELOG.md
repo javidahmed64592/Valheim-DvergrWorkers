@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Moved `Translations.cs` into `Core`, leaving only `Plugin.cs` at the root, and moved the Harmony patches into a `Patches` folder. No behaviour change.
+
 ## 0.15.0
 
 - All settings except the Finder ones are now synced from the server, so workers behave the same whoever's game is running them. The Finder settings stay your own choice.
