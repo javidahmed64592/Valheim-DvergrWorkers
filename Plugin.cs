@@ -131,7 +131,7 @@ internal static class WorkerConfig
         TakeFromOutputChests = config.Bind("Workers", "TakeFromOutputChests", true,
             Synced("Let workers take items from output chests when another worker nearby produces them, e.g. the blacksmith taking the woodcutter's wood. Other items in output chests are never touched."));
         GroundPickupRadius = config.Bind("Workers", "GroundPickupRadius", 4f,
-            Synced("Workers that tend machines (blacksmith, barley, flax and eitr) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.", new AcceptableValueRange<float>(0f, 8f)));
+            Synced("Workers that tend machines (blacksmith, barley, flax, eitr and frost) and the refueler also use items lying on the ground within this distance (metres) of the machine or fire they are tending, e.g. ore dropped next to a smelter or wood next to a hearth. Items on the ground are used before those in chests. Keep it small so they leave alone items dropped for other reasons, like wood while building. 0 turns this off.", new AcceptableValueRange<float>(0f, 8f)));
         InventoryWidth = config.Bind("Workers", "InventoryWidth", 8,
             Synced("Columns in a worker's own inventory.", new AcceptableValueRange<int>(1, 12)));
         InventoryHeight = config.Bind("Workers", "InventoryHeight", 4,

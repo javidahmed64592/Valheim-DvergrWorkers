@@ -6,6 +6,7 @@ using BepInEx.Configuration;
 using DvergrWorkers.Beds;
 using DvergrWorkers.Logistics;
 using DvergrWorkers.Prefabs;
+using DvergrWorkers.Roles.Collector;
 using DvergrWorkers.Roles.Farmer;
 using DvergrWorkers.Roles.MachineTender;
 using DvergrWorkers.Roles.Refueler;
@@ -187,7 +188,37 @@ internal static class WorkerRoles
         DefaultReach = 3f,
     };
 
-    public static readonly IReadOnlyList<WorkerRole> All = [Repair, Woodcutter, Blacksmith, Refueler, Farmer, TreeFarmer, Barley, Flax, Eitr];
+    public static readonly WorkerRole Frost = new()
+    {
+        Name = "Frost",
+        BrainType = typeof(FrostWorker),
+        Chests = ChestUse.Both,
+        Produces = ["$item_frozenfuel"],
+        DefaultInterval = 60f,
+        DefaultReach = 3f,
+    };
+
+    public static readonly WorkerRole Mead = new()
+    {
+        Name = "Mead",
+        BrainType = typeof(MeadWorker),
+        Chests = ChestUse.Both,
+        DefaultInterval = 120f,
+        DefaultReach = 3f,
+    };
+
+    public static readonly WorkerRole Beekeeper = new()
+    {
+        Name = "Beekeeper",
+        BrainType = typeof(BeekeeperWorker),
+        Chests = ChestUse.Output,
+        Produces = ["$item_honey"],
+        DefaultInterval = 300f,
+        DefaultReach = 3f,
+    };
+
+    public static readonly IReadOnlyList<WorkerRole> All =
+        [Repair, Woodcutter, Blacksmith, Refueler, Farmer, TreeFarmer, Barley, Flax, Eitr, Frost, Mead, Beekeeper];
 
     /// <summary>True if a worker role that makes this item has a bed within <paramref name="radius"/> of the point.</summary>
     public static bool IsProducedNearby(string sharedName, Vector3 point, float radius)

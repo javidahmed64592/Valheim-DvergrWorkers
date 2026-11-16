@@ -116,6 +116,24 @@ public abstract class MachineTenderWorker : WorkerBrain
         return false;
     }
 
+    /// <summary>
+    /// Whether the gathering runs after the machines are tended rather than before, so it can use what they just
+    /// made (the frost worker fuelling foundries with the liquid frost its kilns made).
+    /// </summary>
+    protected virtual bool GatherAfterMachines => false;
+
+    /// <summary>Items the gathering produces that go to output chests along with the machines' product.</summary>
+    protected virtual bool IsGatheredProduct(ItemDrop.ItemData item)
+    {
+        return false;
+    }
+
+    /// <summary>Counts items the gathering put in or took out, for the "handled N items last round" status.</summary>
+    protected void AddHandled(int count)
+    {
+        _handled += count;
+    }
+
     /// <summary>Gathered inputs the machines had no room for. They are stored in a chest once the machines are tended.</summary>
     protected virtual bool IsSurplus(ItemDrop.ItemData item)
     {
@@ -139,7 +157,7 @@ public abstract class MachineTenderWorker : WorkerBrain
 
     private bool IsProduct(ItemDrop.ItemData item)
     {
-        return item != null && _productNames.Contains(item.m_shared.m_name);
+        return item != null && (_productNames.Contains(item.m_shared.m_name) || IsGatheredProduct(item));
     }
 
     private bool CarryingSurplus()
@@ -497,7 +515,7 @@ public abstract class MachineTenderWorker : WorkerBrain
             return StartDeposit();
         }
 
-        if (_gatherPending)
+        if (_gatherPending && !GatherAfterMachines)
         {
             _gatherPending = false;
             _phase = Phase.Gather;
@@ -577,6 +595,13 @@ public abstract class MachineTenderWorker : WorkerBrain
             _needIndex = 0;
             _fetchActive = false;
             _phase = Phase.Fetch;
+            return true;
+        }
+
+        if (_gatherPending)
+        {
+            _gatherPending = false;
+            _phase = Phase.Gather;
             return true;
         }
 

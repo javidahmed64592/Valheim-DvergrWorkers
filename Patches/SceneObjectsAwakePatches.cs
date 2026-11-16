@@ -87,3 +87,21 @@ internal static class SapCollector_Awake_Patch
         Scene.SapCollectors.Add(__instance);
     }
 }
+
+[HarmonyPatch(typeof(Fermenter), nameof(Fermenter.Awake))]
+internal static class Fermenter_Awake_Patch
+{
+    private static void Postfix(Fermenter __instance)
+    {
+        Scene.Fermenters.Add(__instance);
+    }
+}
+
+[HarmonyPatch(typeof(Beehive), nameof(Beehive.Awake))]
+internal static class Beehive_Awake_Patch
+{
+    private static void Postfix(Beehive __instance)
+    {
+        Scene.Beehives.Add(__instance);
+    }
+}
