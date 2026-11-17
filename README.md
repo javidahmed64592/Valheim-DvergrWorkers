@@ -17,6 +17,9 @@ Dvergr workers help around your base and defend it when it is under attack:
 - **Barley Worker** - feeds windmills with barley and collects the flour.
 - **Flax Worker** - feeds spinning wheels with flax and collects the linen thread.
 - **Eitr Worker** - feeds eitr refineries with sap and soft tissue and collects the eitr.
+- **Frost Worker** - keeps frigid kilns fed with ice, fuels frost foundries with the liquid frost, and casts the moulds you prepare.
+- **Mead Worker** - fills fermenters with mead bases and collects the mead.
+- **Beekeeper Worker** - collects honey from beehives.
 
 ## Workers in Action
 
@@ -63,6 +66,13 @@ Each job loop:
 - **Barley Worker** - keeps windmills within its work area fed with barley from the input chest, collects the flour, and delivers it to the output chests.
 - **Flax Worker** - keeps spinning wheels within its work area fed with flax from the input chest, collects the linen thread, and delivers it to the output chests.
 - **Eitr Worker** - taps sap extractors within its work area, keeps eitr refineries fed with that sap and the sap and soft tissue from the input chest (spare sap goes to a chest), collects the eitr, and delivers it to the output chests.
+- **Frost Worker** - keeps frigid kilns within its work area topped up with ice from the input chest and collects the liquid frost.
+  It then tends the frost foundries: it takes out finished gear, tops up their liquid frost (what the kilns just made first, then what is in the chests), and puts in a mould you have prepared from the input chest.
+  The gear names you as its crafter, as if you had cast it yourself.
+  Gear and spare liquid frost go to the output chests, and moulds that did not fit go back to the input chest.
+- **Mead Worker** - taps fermenters within its work area when the mead is ready, puts a mead base from the input chest into each empty one, and delivers the mead to the output chests.
+  Like you, it only fills fermenters under a roof.
+- **Beekeeper Worker** - collects the honey from beehives within its work area and delivers it to the output chests.
 
 ### Beds
 
@@ -82,7 +92,6 @@ Press **Shift+E** again to send it back to work.
 The workers use the Worker Input Chest and Worker Output Chest (buildable, same cost as the reinforced chest) to store and retrieve materials needed for their tasks.
 These chests must be within the worker's job radius to be used.
 Currently, the workers share input and output chests within their job radius.
-This may be changed in the future to allow for more complex chest management or individual chest assignments.
 
 When a worker deposits an item, it first looks for a chest that already holds that item, even if it is further away.
 If no chest does, it starts a new category in an empty chest, and only then uses the nearest chest with room.
@@ -94,7 +103,7 @@ If the output chests are full, the worker stops and the bed's hover text says so
 
 Workers also tidy up and use items lying on the ground, so you do not always have to visit the input chest:
 
-- Machine workers (blacksmith, barley, flax and eitr) use input items dropped right next to one of their machines, e.g. ore beside a smelter.
+- Machine workers (blacksmith, barley, flax, eitr and frost) use input items dropped right next to one of their machines, e.g. ore beside a smelter.
 - The refueler uses fuel dropped right next to the fire it is refuelling.
 - The tree farmer picks up tree seeds, cones and acorns lying near somewhere it would plant a tree, plants as many as it can close to where they lay, and returns the rest to the input chest.
 
@@ -115,6 +124,9 @@ For example, the farmer can keep replanting barley while the barley worker mills
 | Barley Worker      | ✅          | ✅           |
 | Flax Worker        | ✅          | ✅           |
 | Eitr Worker        | ✅          | ✅           |
+| Frost Worker       | ✅          | ✅           |
+| Mead Worker        | ✅          | ✅           |
+| Beekeeper Worker   | ❌          | ✅           |
 
 ## Configuration
 
@@ -123,7 +135,7 @@ Settings marked "(Synced with server)" use the server's values when the server h
 
 ## Compatibility
 
-- Mods that change Dvergr behaviour, beds, or the machines workers tend (smelters, kilns, windmills, spinning wheels, eitr refineries, fires) may change how workers behave.
+- Mods that change Dvergr behaviour, beds, or the machines workers tend (smelters, kilns, windmills, spinning wheels, eitr refineries, frigid kilns, frost foundries, fermenters, beehives, fires) may change how workers behave.
 - Mods that automatically move items in and out of chests may take items from worker chests before the workers do.
 - This mod has not been tested with a gamepad, only with keyboard and mouse.
 

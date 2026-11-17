@@ -74,6 +74,8 @@ internal static class Scene
     public static readonly SceneObjects<Fireplace> Fireplaces = new();
     public static readonly SceneObjects<CookingStation> CookingStations = new();
     public static readonly SceneObjects<SapCollector> SapCollectors = new();
+    public static readonly SceneObjects<Fermenter> Fermenters = new();
+    public static readonly SceneObjects<Beehive> Beehives = new();
 
     /// <summary>Tree stumps are Destructibles of type Tree named like "Beech_Stub"; player pieces are never touched.</summary>
     internal static bool IsStump(Destructible destructible)
