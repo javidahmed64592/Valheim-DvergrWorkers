@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.16.0
+
+Three new workers: the Frost, Mead and Beekeeper Beds.
 
 - Added the **Frost Bed**: its Dvergr keeps frigid kilns topped up with ice and collects the liquid frost, then tends the frost foundries. It takes out finished gear, tops up their liquid frost (from the kilns first, then the chests), and puts in a mould you have prepared from the input chest. The gear still names the player who prepared the mould as its crafter. Gear and spare liquid frost go to the output chests; moulds that did not fit go back to the input chest. The Blacksmith leaves frigid kilns alone.
 - Added the **Mead Bed**: its Dvergr taps fermenters when the mead is ready, fills each empty one with a mead base from the input chest, and delivers the mead to the output chests. It only fills fermenters under a roof, and the bed says so when they have none.

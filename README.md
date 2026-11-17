@@ -92,7 +92,6 @@ Press **Shift+E** again to send it back to work.
 The workers use the Worker Input Chest and Worker Output Chest (buildable, same cost as the reinforced chest) to store and retrieve materials needed for their tasks.
 These chests must be within the worker's job radius to be used.
 Currently, the workers share input and output chests within their job radius.
-This may be changed in the future to allow for more complex chest management or individual chest assignments.
 
 When a worker deposits an item, it first looks for a chest that already holds that item, even if it is further away.
 If no chest does, it starts a new category in an empty chest, and only then uses the nearest chest with room.
