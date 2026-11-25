@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1
+
+- No longer logs a warning about a missing LiberationSans SDF font.
+
 ## 0.16.0
 
 Three new workers: the Frost, Mead and Beekeeper Beds.
