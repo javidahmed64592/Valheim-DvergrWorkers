@@ -127,11 +127,14 @@ internal sealed class FinderMarker
         _arrowImage.sprite = FinderTextures.Arrow;
         _arrowImage.raycastTarget = false;
 
-        GameObject label = new("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        // TextMeshPro is added while the label is inactive so its Awake runs after the font is set. Otherwise it looks
+        // for its default font (LiberationSans SDF), which Valheim doesn't ship, and logs a warning.
+        GameObject label = new("Label", typeof(RectTransform));
+        label.SetActive(false);
         _label = label.GetComponent<RectTransform>();
         _label.SetParent(_root.transform, worldPositionStays: false);
         _label.sizeDelta = new Vector2(260f, 60f);
-        _text = label.GetComponent<TextMeshProUGUI>();
+        _text = label.AddComponent<TextMeshProUGUI>();
 
         // The same font and outlined material as the crosshair's hover text.
         TextMeshProUGUI hover = hud.m_hoverName;
@@ -140,6 +143,9 @@ internal sealed class FinderMarker
             _text.font = hover.font;
             _text.fontSharedMaterial = hover.fontSharedMaterial;
         }
+
+        label.SetActive(true);
+
         _text.fontSize = 18f;
         _text.alignment = TextAlignmentOptions.Center;
         _text.textWrappingMode = TextWrappingModes.NoWrap;
