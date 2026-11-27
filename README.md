@@ -132,11 +132,13 @@ For example, the farmer can keep replanting barley while the barley worker mills
 
 Settings are in the BepInEx config file `javidahmed64592.dvergrworkers.cfg`.
 Settings marked "(Synced with server)" use the server's values when the server has the mod installed.
+`DisabledFeatures` under `[Debug]` is for testing: it turns parts of the mod off by name. Leave it empty to play normally.
 
 ## Compatibility
 
 - Mods that change Dvergr behaviour, beds, or the machines workers tend (smelters, kilns, windmills, spinning wheels, eitr refineries, frigid kilns, frost foundries, fermenters, beehives, fires) may change how workers behave.
 - Mods that automatically move items in and out of chests may take items from worker chests before the workers do.
+- If a game update breaks part of the mod, that part turns off on its own and the log says which one; the rest keeps working.
 - This mod has not been tested with a gamepad, only with keyboard and mouse.
 
 ## Uninstalling
