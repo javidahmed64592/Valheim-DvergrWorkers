@@ -34,7 +34,10 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
         Translations.Load();
 
         _harmony = new Harmony(PluginGUID);
-        _harmony.PatchAll();
+        if (!SafePatcher.PatchAll(_harmony, Config, Logger))
+        {
+            return;
+        }
 
         // Fires at the main menu once vanilla prefabs can be cloned.
         PrefabManager.OnVanillaPrefabsAvailable += RegisterPrefabs;
@@ -43,6 +46,11 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "Unity message")]
     private void LateUpdate()
     {
+        if (!SafePatcher.ModEnabled)
+        {
+            return;
+        }
+
         WorkerFinder.LateUpdate(UnityEngine.Time.deltaTime);
     }
 

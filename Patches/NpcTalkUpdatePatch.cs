@@ -7,8 +7,12 @@ using UnityEngine;
 namespace DvergrWorkers.Patches;
 
 [HarmonyPatch(typeof(NpcTalk), "Update")]
+[Feature(Feature)]
 internal static class NpcTalk_Update_Patch
 {
+    /// <summary>Without it, workers turn to face a nearby player as vanilla Dvergr do, so they wiggle while working.</summary>
+    public const string Feature = "Steady workers";
+
     /// <summary>
     /// Vanilla Dvergr turn to face the nearest player whenever they are nearly stationary. That fights
     /// the worker's own steering (it makes them dither or wiggle at a chest, a machine or while strolling),

@@ -103,7 +103,7 @@
        imported (those props expect a local Valheim install to resolve paths). -->
   <ItemGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <PackageReference Include="Pfhoenix.Valheim.ModProjectReferences" Version="1.0.26" />
-    <PackageReference Include="JotunnLib" Version="2.30.2" ExcludeAssets="build" />
+    <PackageReference Include="JotunnLib" Version="2.30.3" ExcludeAssets="build" />
   </ItemGroup>
 
 </Project>
