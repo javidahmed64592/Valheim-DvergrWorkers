@@ -21,7 +21,7 @@ public class DvergrWorkersPlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.dvergrworkers";
     public const string PluginName = "Dvergr Workers";
-    public const string PluginVersion = "0.16.1";
+    public const string PluginVersion = "0.17.0";
 
     internal static BepInEx.Logging.ManualLogSource Log { get; private set; }
 

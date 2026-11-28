@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.17.0
 
-- If a game update breaks part of the mod, only that part turns off and the rest keeps working: workers keeping still while they work, their hover text, and finding each kind of machine, fire, log or stump can each turn off while the other workers carry on. The log says which part is off, in one line. If the workers themselves break, the whole mod turns off cleanly instead of throwing errors.
-- New `DisabledFeatures` setting under `[Debug]`, for testing: turns parts of the mod off by name.
+- **Safer after game updates:** if an update breaks part of the mod (such as workers keeping still while they work, their hover text, or finding one kind of machine, fire, log or stump), only that part turns off and the log says which, in one line; the other workers carry on. If the workers themselves breaks, the whole mod turns off cleanly instead of throwing errors.
+- **Debug setting:** the new `DisabledFeatures` setting under `[Debug]` turns parts of the mod off by name, for testing.
 - Updated Jotunn to 2.30.3.
 
 ## 0.16.1
